@@ -19,14 +19,14 @@ SELECT A.debits AS DEBITS, B.credits AS CREDITS FROM
       ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B;
 
 RAISE NOTICE 'Not sure';
-UPDATE t_account SET totals = x.totals FROM (SELECT (A.debits - B.credits) AS totals FROM  
+UPDATE t_account SET totals = x.totals FROM (SELECT (A.debits - B.credits) AS totals FROM
       ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' ) A,
-      ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B) x WHERE t_account.account_name_owner = 'grand.total_dummy'; 
+      ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B) x WHERE t_account.account_name_owner = 'grand.total_dummy';
 
 RAISE NOTICE 'Grand Total';
-SELECT (A.debits - B.credits) AS TOTALS FROM  
+SELECT (A.debits - B.credits) AS TOTALS FROM
       ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' ) A,
-      ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B; 
+      ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B;
 
 RAISE NOTICE 'Looking for dupliate GUIDs';
 SELECT guid FROM t_transaction GROUP BY 1 HAVING COUNT(*) > 1;
@@ -35,14 +35,14 @@ CREATE OR REPLACE FUNCTION fn_ins_summary() RETURNS void AS $$
   INSERT INTO t_summary(summary_id, guid, account_name_owner, totals, totals_balanced, date_updated, date_added)
   (SELECT nextval('t_summary_summary_id_seq'), C.uuid AS guid, A.account_name_owner, A.totals AS totals, B.totals_balanced AS totals_balanced, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP FROM
     ( SELECT account_name_owner, SUM(amount) AS totals FROM t_transaction GROUP BY account_name_owner ) A,
-    ( SELECT account_name_owner, SUM(amount) AS totals_balanced FROM t_transaction WHERE cleared=1 GROUP BY account_name_owner ) B, 
+    ( SELECT account_name_owner, SUM(amount) AS totals_balanced FROM t_transaction WHERE cleared=1 GROUP BY account_name_owner ) B,
     ( SELECT uuid_generate_v4() AS uuid ) C
    WHERE A.account_name_owner = B.account_name_owner);
    UPDATE t_account SET totals = x.totals FROM (SELECT account_name_owner, SUM(amount) AS totals FROM t_transaction GROUP BY account_name_owner) x WHERE t_account.account_name_owner = x.account_name_owner;
    UPDATE t_account SET totals_balanced = x.totals_balanced FROM (SELECT account_name_owner, SUM(amount) AS totals_balanced FROM t_transaction WHERE cleared = 1 GROUP BY account_name_owner) x WHERE t_account.account_name_owner = x.account_name_owner;
    UPDATE t_account SET totals = x.totals FROM (SELECT (A.debits - B.credits) AS totals FROM
       ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' ) A,
-      ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B) x WHERE t_account.account_name_owner = 'grand.total_dummy'; 
+      ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B) x WHERE t_account.account_name_owner = 'grand.total_dummy';
 
 $$ LANGUAGE SQL;
 
@@ -66,4 +66,4 @@ RAISE NOTICE 'Two or more spaces in the category';
 SELECT NULL AS 'Two or more spaces in the category';
 SELECT category FROM t_transaction WHERE category like '%  %';
 
-\copy (SELECT * FROM t_transaction) TO finance_db.csv WITH (FORMAT csv, HEADER true)
+--\copy (SELECT * FROM t_transaction) TO finance_db.csv WITH (FORMAT csv, HEADER true)
