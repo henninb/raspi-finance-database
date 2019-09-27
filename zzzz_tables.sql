@@ -67,3 +67,6 @@ SELECT NULL AS 'Two or more spaces in the category';
 SELECT category FROM t_transaction WHERE category like '%  %';
 
 --\copy (SELECT * FROM t_transaction) TO finance_db.csv WITH (FORMAT csv, HEADER true)
+
+
+SELECT * FROM t_transaction WHERE CAST(transaction_date AS DATE) = '2019-09-27';
