@@ -1,0 +1,2 @@
+# on macos
+createuser postgres
