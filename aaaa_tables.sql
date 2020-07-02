@@ -19,8 +19,17 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 --create the SEQUENCE prior to the table.
 --DROP SEQUENCE IF EXISTS t_account_account_id_seq CASCADE;
 --to_timestamp(0)
-CREATE SEQUENCE t_account_account_id_seq START WITH 1001;
 
+CREATE SEQUENCE t_payment_payment_id_seq START WITH 1001;
+DROP TABLE IF EXISTS t_payment;
+CREATE TABLE IF NOT EXISTS t_payment(
+  payment_id BIGINT DEFAULT nextval('t_payment_payment_id_seq') NOT NULL,
+  account_name_owner VARCHAR(40) NOT NULL,
+  transaction_date DATE NOT NULL,
+  amount DECIMAL(12,2) NOT NULL DEFAULT 0.0
+);
+
+CREATE SEQUENCE t_account_account_id_seq START WITH 1001;
 DROP TABLE IF EXISTS t_account;
 CREATE TABLE IF NOT EXISTS t_account(
   --account_id BIGINT DEFAULT nextval('t_account_account_id_seq') PRIMARY KEY NOT NULL,
