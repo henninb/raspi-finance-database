@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS t_payment(
   transaction_date DATE NOT NULL,
   amount DECIMAL(12,2) NOT NULL DEFAULT 0.0
 );
+ALTER TABLE t_payment ADD PRIMARY KEY (payment_id);
 
 CREATE SEQUENCE t_account_account_id_seq START WITH 1001;
 DROP TABLE IF EXISTS t_account;
@@ -47,6 +48,7 @@ CREATE TABLE IF NOT EXISTS t_account(
   date_updated TIMESTAMP DEFAULT TO_TIMESTAMP(0),
   date_added TIMESTAMP DEFAULT TO_TIMESTAMP(0)
 );
+ALTER TABLE t_account ADD PRIMARY KEY (account_id);
 
 --ALTER TABLE t_account ADD PRIMARY KEY (account_id);
 --ALTER TABLE t_account ALTER COLUMN account_id set DEFAULT nextval('t_account_account_id_seq');
@@ -95,6 +97,7 @@ CREATE TABLE IF NOT EXISTS t_summary (
   date_updated TIMESTAMP,
   date_added TIMESTAMP
 );
+ALTER TABLE t_summary ADD PRIMARY KEY (summary_id);
 
 CREATE SEQUENCE t_category_category_id_seq start with 1001;
 
@@ -123,10 +126,10 @@ CREATE SEQUENCE t_transaction_transaction_id_seq start with 1001;
 
 DROP TABLE IF EXISTS t_transaction;
 CREATE TABLE IF NOT EXISTS t_transaction (
+  transaction_id BIGINT DEFAULT nextval('t_transaction_transaction_id_seq') NOT NULL,
   account_id BIGINT,
   account_type VARCHAR(6),
   account_name_owner VARCHAR(40) NOT NULL,
-  transaction_id BIGINT DEFAULT nextval('t_transaction_transaction_id_seq') NOT NULL,
   guid VARCHAR(36) NOT NULL,
   sha256 VARCHAR(70),
   transaction_date DATE NOT NULL,
@@ -141,6 +144,7 @@ CREATE TABLE IF NOT EXISTS t_transaction (
   --CONSTRAINT t_transaction_pk PRIMARY KEY (guid)
   --CONSTRAINT t_transaction_unique UNIQUE (guid)
 );
+ALTER TABLE t_transaction ADD PRIMARY KEY (transaction_id);
 
 ALTER TABLE t_transaction ADD CONSTRAINT transaction_constraint UNIQUE (account_name_owner, transaction_date, description, category, amount, notes);
 
