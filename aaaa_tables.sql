@@ -12,6 +12,9 @@
 DROP DATABASE IF EXISTS finance_db;
 CREATE DATABASE finance_db;
 GRANT ALL PRIVILEGES ON DATABASE finance_db TO henninb;
+
+REVOKE CONNECT ON DATABASE finance_db FROM public;
+
 \connect finance_db;
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -21,27 +24,30 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 --to_timestamp(0)
 
 CREATE SEQUENCE t_payment_payment_id_seq START WITH 1001;
+
+truncate table t_payment;
 DROP TABLE IF EXISTS t_payment;
 CREATE TABLE IF NOT EXISTS t_payment(
   payment_id BIGINT DEFAULT nextval('t_payment_payment_id_seq') NOT NULL,
-  account_name_owner VARCHAR(40) NOT NULL,
+  account_name_owner TEXT NOT NULL,
   transaction_date DATE NOT NULL,
   amount DECIMAL(12,2) NOT NULL DEFAULT 0.0
 );
 ALTER TABLE t_payment ADD PRIMARY KEY (payment_id);
 
+truncate table t_account;
 CREATE SEQUENCE t_account_account_id_seq START WITH 1001;
 DROP TABLE IF EXISTS t_account;
 CREATE TABLE IF NOT EXISTS t_account(
   --account_id BIGINT DEFAULT nextval('t_account_account_id_seq') PRIMARY KEY NOT NULL,
   account_id BIGINT DEFAULT nextval('t_account_account_id_seq') NOT NULL,
-  account_name_owner VARCHAR(40) NOT NULL,
-  account_name VARCHAR(20), -- NULL for now
-  account_owner VARCHAR(20), -- NULL for now
-  account_type VARCHAR(6) NOT NULL,
+  account_name_owner TEXT NOT NULL,
+  account_name TEXT, -- NULL for now
+  account_owner TEXT, -- NULL for now
+  account_type TEXT NOT NULL,
   --active_status VARCHAR(1) NOT NULL,
   active_status BOOLEAN NOT NULL,
-  moniker VARCHAR(4),
+  moniker TEXT,
   totals DECIMAL(12,2) DEFAULT 0.0,
   totals_balanced DECIMAL(12,2) DEFAULT 0.0,
   date_closed TIMESTAMP DEFAULT TO_TIMESTAMP(0),
@@ -86,12 +92,13 @@ CREATE TRIGGER tr_ins_ts_account BEFORE INSERT ON t_account FOR EACH ROW EXECUTE
 --DROP SEQUENCE IF EXISTS t_summary_summary_id_seq CASCADE;
 CREATE SEQUENCE t_summary_summary_id_seq start with 1001;
 
+truncate table t_summary;
 DROP TABLE IF EXISTS t_summary;
 CREATE TABLE IF NOT EXISTS t_summary (
   summary_id BIGINT DEFAULT nextval('t_summary_summary_id_seq') NOT NULL,
   --summary_id serial PRIMARY KEY,
-  guid VARCHAR(70),
-  account_name_owner VARCHAR(40) NOT NULL,
+  guid TEXT,
+  account_name_owner TEXT NOT NULL UNIQUE,
   totals DECIMAL(12,2) NOT NULL,
   totals_balanced DECIMAL(12,2) NOT NULL,
   date_updated TIMESTAMP,
@@ -104,7 +111,7 @@ CREATE SEQUENCE t_category_category_id_seq start with 1001;
 DROP TABLE IF EXISTS t_category;
 CREATE TABLE IF NOT EXISTS t_category(
   category_id BIGINT DEFAULT nextval('t_category_category_id_seq') NOT NULL,
-  category VARCHAR(50)
+  category TEXT UNIQUE
 );
 
 DROP TABLE IF EXISTS t_transaction_categories;
@@ -124,21 +131,22 @@ CREATE TABLE IF NOT EXISTS t_transaction_categories(
 --DROP SEQUENCE IF EXISTS t_transaction_transaction_id_seq CASCADE;
 CREATE SEQUENCE t_transaction_transaction_id_seq start with 1001;
 
+truncate table t_transaction;
 DROP TABLE IF EXISTS t_transaction;
 CREATE TABLE IF NOT EXISTS t_transaction (
   transaction_id BIGINT DEFAULT nextval('t_transaction_transaction_id_seq') NOT NULL,
   account_id BIGINT,
-  account_type VARCHAR(6),
-  account_name_owner VARCHAR(40) NOT NULL,
-  guid VARCHAR(36) NOT NULL,
-  sha256 VARCHAR(70),
+  account_type TEXT,
+  account_name_owner TEXT NOT NULL,
+  guid TEXT NOT NULL UNIQUE,
+  sha256 TEXT, -- TODO: need to decomission
   transaction_date DATE NOT NULL,
-  description VARCHAR(75) NOT NULL,
-  category VARCHAR(50),
+  description TEXT NOT NULL,
+  category TEXT,
   amount DECIMAL(12,2) NOT NULL DEFAULT 0.0,
   cleared INTEGER,
   reoccurring BOOLEAN DEFAULT FALSE,
-  notes VARCHAR(100),
+  notes TEXT,
   date_updated TIMESTAMP DEFAULT TO_TIMESTAMP(0),
   date_added TIMESTAMP DEFAULT TO_TIMESTAMP(0)
   --CONSTRAINT t_transaction_pk PRIMARY KEY (guid)

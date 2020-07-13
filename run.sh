@@ -9,8 +9,9 @@ else
 fi
 
 echo postgresql database password
-psql -h ${HOST_IP} -p 5432 -d postgres -U henninb < master.sql > log.txt 2>&1
+#psql -h "${HOST_IP}" -p 5432 -d postgres -U henninb < master.sql > finance-db-log.txt 2>&1
+psql -h "${HOST_IP}" -p 5432 -d postgres -U henninb < master.sql > finance-db-log.txt
 
-echo psql finance_db -U henninb -h ${HOST_IP}
+echo psql finance_db -U henninb -h "${HOST_IP}"
 
 exit 0
