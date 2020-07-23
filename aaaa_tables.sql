@@ -135,18 +135,18 @@ truncate table t_transaction;
 DROP TABLE IF EXISTS t_transaction;
 CREATE TABLE IF NOT EXISTS t_transaction (
   transaction_id BIGINT DEFAULT nextval('t_transaction_transaction_id_seq') NOT NULL,
-  account_id BIGINT,
-  account_type TEXT,
+  account_id BIGINT DEFAULT -1,
+  account_type TEXT NOT NULL,
   account_name_owner TEXT NOT NULL,
   guid TEXT NOT NULL UNIQUE,
-  sha256 TEXT, -- TODO: need to decomission
+  sha256 TEXT DEFAULT '', -- TODO: need to decomission
   transaction_date DATE NOT NULL,
   description TEXT NOT NULL,
-  category TEXT,
+  category TEXT DEFAULT '',
   amount DECIMAL(12,2) NOT NULL DEFAULT 0.0,
-  cleared INTEGER,
+  cleared INTEGER DEFAULT 0,
   reoccurring BOOLEAN DEFAULT FALSE,
-  notes TEXT,
+  notes TEXT DEFAULT '',
   date_updated TIMESTAMP DEFAULT TO_TIMESTAMP(0),
   date_added TIMESTAMP DEFAULT TO_TIMESTAMP(0)
   --CONSTRAINT t_transaction_pk PRIMARY KEY (guid)
@@ -162,8 +162,9 @@ CREATE OR REPLACE FUNCTION fn_ins_ts_transaction() RETURNS TRIGGER AS
 $$
 DECLARE
 BEGIN
-  RAISE NOTICE 'fn_ins_ts_transaction';
+  --RAISE NOTICE 'fn_ins_ts_transaction';
   NEW.date_added := CURRENT_TIMESTAMP;
+  NEW.date_updated := CURRENT_TIMESTAMP;
   RETURN NEW;
 END;
 $$ LANGUAGE PLPGSQL;
