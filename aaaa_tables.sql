@@ -18,6 +18,7 @@ REVOKE CONNECT ON DATABASE finance_db FROM public;
 \connect finance_db;
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+SET client_min_messages TO WARNING;
 
 --create the SEQUENCE prior to the table.
 --DROP SEQUENCE IF EXISTS t_account_account_id_seq CASCADE;
@@ -25,7 +26,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE SEQUENCE t_payment_payment_id_seq START WITH 1001;
 
-truncate table t_payment;
+--TRUNCATE TABLE IF EXISTS t_payment;
 DROP TABLE IF EXISTS t_payment;
 CREATE TABLE IF NOT EXISTS t_payment(
   payment_id BIGINT DEFAULT nextval('t_payment_payment_id_seq') NOT NULL,
@@ -35,7 +36,7 @@ CREATE TABLE IF NOT EXISTS t_payment(
 );
 ALTER TABLE t_payment ADD PRIMARY KEY (payment_id);
 
-truncate table t_account;
+--TRUNCATE TABLE IF EXISTS t_account;
 CREATE SEQUENCE t_account_account_id_seq START WITH 1001;
 DROP TABLE IF EXISTS t_account;
 CREATE TABLE IF NOT EXISTS t_account(
@@ -92,7 +93,7 @@ CREATE TRIGGER tr_ins_ts_account BEFORE INSERT ON t_account FOR EACH ROW EXECUTE
 --DROP SEQUENCE IF EXISTS t_summary_summary_id_seq CASCADE;
 CREATE SEQUENCE t_summary_summary_id_seq start with 1001;
 
-truncate table t_summary;
+--TRUNCATE TABLE IF EXISTS t_summary;
 DROP TABLE IF EXISTS t_summary;
 CREATE TABLE IF NOT EXISTS t_summary (
   summary_id BIGINT DEFAULT nextval('t_summary_summary_id_seq') NOT NULL,
@@ -131,7 +132,7 @@ CREATE TABLE IF NOT EXISTS t_transaction_categories(
 --DROP SEQUENCE IF EXISTS t_transaction_transaction_id_seq CASCADE;
 CREATE SEQUENCE t_transaction_transaction_id_seq start with 1001;
 
-truncate table t_transaction;
+--TRUNCATE TABLE IF EXISTS t_transaction;
 DROP TABLE IF EXISTS t_transaction;
 CREATE TABLE IF NOT EXISTS t_transaction (
   transaction_id BIGINT DEFAULT nextval('t_transaction_transaction_id_seq') NOT NULL,
@@ -163,6 +164,7 @@ $$
 DECLARE
 BEGIN
   --RAISE NOTICE 'fn_ins_ts_transaction';
+  --TODO: add logic to insert account
   NEW.date_added := CURRENT_TIMESTAMP;
   NEW.date_updated := CURRENT_TIMESTAMP;
   RETURN NEW;

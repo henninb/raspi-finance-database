@@ -1,8 +1,8 @@
 SELECT count(*) into void_record_i from t_transaction WHERE amount='0.00' AND cleared=1 AND description = 'void' AND notes='';
-RAISE notice 'Number of void records deleted: %', void_record_i;
+--RAISE notice 'Number of void records deleted: %', void_record_i;
 
 SELECT count(*) into none_record_i from t_transaction WHERE amount='0.00' AND cleared=1 AND description = 'none' AND notes='';
-RAISE notice 'Number of none records deleted: %', none_record_i;
+--RAISE notice 'Number of none records deleted: %', none_record_i;
 
 DELETE FROM t_transaction WHERE amount='0.00' AND cleared=1 AND description = 'void' AND notes='';
 DELETE FROM t_transaction WHERE amount='0.00' AND cleared=1 AND description = 'none' AND notes='';
@@ -18,17 +18,17 @@ SELECT A.debits AS DEBITS, B.credits AS CREDITS FROM
       ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' ) A,
       ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B;
 
-RAISE NOTICE 'Not sure';
+--RAISE NOTICE 'Not sure';
 UPDATE t_account SET totals = x.totals FROM (SELECT (A.debits - B.credits) AS totals FROM
       ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' ) A,
       ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B) x WHERE t_account.account_name_owner = 'grand.total_dummy';
 
-RAISE NOTICE 'Grand Total';
+--RAISE NOTICE 'Grand Total';
 SELECT (A.debits - B.credits) AS TOTALS FROM
       ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' ) A,
       ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B;
 
-RAISE NOTICE 'Looking for dupliate GUIDs';
+--RAISE NOTICE 'Looking for dupliate GUIDs';
 SELECT guid FROM t_transaction GROUP BY 1 HAVING COUNT(*) > 1;
 
 CREATE OR REPLACE FUNCTION fn_ins_summary() RETURNS void AS $$
@@ -46,24 +46,24 @@ CREATE OR REPLACE FUNCTION fn_ins_summary() RETURNS void AS $$
 
 $$ LANGUAGE SQL;
 
-RAISE NOTICE 'Populate Summary';
-SELECT NULL AS 'Populate Summary';
+--RAISE NOTICE 'Populate Summary';
+--SELECT NULL AS 'Populate Summary';
 SELECT fn_ins_summary();
 
-RAISE NOTICE 'Summary by account';
-SELECT NULL AS 'Summary by account';
+--RAISE NOTICE 'Summary by account';
+--SELECT NULL AS 'Summary by account';
 SELECT * FROM t_summary WHERE guid IN (SELECT guid FROM t_summary ORDER BY date_added DESC LIMIT 1) ORDER BY account_name_owner;
 
-RAISE NOTICE 'Two or more spaces in the description';
-SELECT NULL AS 'Two or more spaces in the description';
+--RAISE NOTICE 'Two or more spaces in the description';
+--SELECT NULL AS 'Two or more spaces in the description';
 SELECT description FROM t_transaction WHERE description like '%  %';
 
-RAISE NOTICE 'Two or more spaces in the notes';
-SELECT NULL AS 'Two or more spaces in the notes';
+--RAISE NOTICE 'Two or more spaces in the notes';
+--SELECT NULL AS 'Two or more spaces in the notes';
 SELECT notes FROM t_transaction WHERE notes like '%  %';
 
-RAISE NOTICE 'Two or more spaces in the category';
-SELECT NULL AS 'Two or more spaces in the category';
+--RAISE NOTICE 'Two or more spaces in the category';
+--SELECT NULL AS 'Two or more spaces in the category';
 SELECT category FROM t_transaction WHERE category like '%  %';
 
 --\copy (SELECT * FROM t_transaction) TO finance_db.csv WITH (FORMAT csv, HEADER true)
