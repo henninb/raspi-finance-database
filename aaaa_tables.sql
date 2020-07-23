@@ -35,20 +35,19 @@ CREATE TABLE IF NOT EXISTS t_payment(
   amount DECIMAL(12,2) NOT NULL DEFAULT 0.0
 );
 ALTER TABLE t_payment ADD PRIMARY KEY (payment_id);
+ALTER TABLE t_payment ADD CONSTRAINT payment_constraint UNIQUE (account_name_owner, transaction_date, amount);
 
 --TRUNCATE TABLE IF EXISTS t_account;
 CREATE SEQUENCE t_account_account_id_seq START WITH 1001;
 DROP TABLE IF EXISTS t_account;
 CREATE TABLE IF NOT EXISTS t_account(
-  --account_id BIGINT DEFAULT nextval('t_account_account_id_seq') PRIMARY KEY NOT NULL,
   account_id BIGINT DEFAULT nextval('t_account_account_id_seq') NOT NULL,
-  account_name_owner TEXT NOT NULL,
+  account_name_owner TEXT UNIQUE NOT NULL,
   account_name TEXT, -- NULL for now
   account_owner TEXT, -- NULL for now
   account_type TEXT NOT NULL,
-  --active_status VARCHAR(1) NOT NULL,
   active_status BOOLEAN NOT NULL,
-  moniker TEXT,
+  moniker TEXT DEFAULT '',
   totals DECIMAL(12,2) DEFAULT 0.0,
   totals_balanced DECIMAL(12,2) DEFAULT 0.0,
   date_closed TIMESTAMP DEFAULT TO_TIMESTAMP(0),
@@ -98,10 +97,10 @@ DROP TABLE IF EXISTS t_summary;
 CREATE TABLE IF NOT EXISTS t_summary (
   summary_id BIGINT DEFAULT nextval('t_summary_summary_id_seq') NOT NULL,
   --summary_id serial PRIMARY KEY,
-  guid TEXT,
+  guid TEXT UNIQUE NOT NULL,
   account_name_owner TEXT NOT NULL UNIQUE,
-  totals DECIMAL(12,2) NOT NULL,
-  totals_balanced DECIMAL(12,2) NOT NULL,
+  totals DECIMAL(12,2) NOT NULL DEFAULT 0.0,
+  totals_balanced DECIMAL(12,2) NOT NULL DEFAULT 0.0,
   date_updated TIMESTAMP,
   date_added TIMESTAMP
 );
@@ -112,7 +111,7 @@ CREATE SEQUENCE t_category_category_id_seq start with 1001;
 DROP TABLE IF EXISTS t_category;
 CREATE TABLE IF NOT EXISTS t_category(
   category_id BIGINT DEFAULT nextval('t_category_category_id_seq') NOT NULL,
-  category TEXT UNIQUE
+  category TEXT UNIQUE NOT NULL
 );
 
 DROP TABLE IF EXISTS t_transaction_categories;

@@ -3,3 +3,4 @@ master.sql
 nohup.out
 .idea
 finance-db-log.txt
+*.tar
