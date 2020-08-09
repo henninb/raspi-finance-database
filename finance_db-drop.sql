@@ -1,0 +1,3 @@
+DROP DATABASE IF EXISTS finance_db;
+CREATE DATABASE finance_db;
+GRANT ALL PRIVILEGES ON DATABASE finance_db TO henninb;

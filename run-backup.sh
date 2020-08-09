@@ -7,8 +7,6 @@ else
 fi
 
 echo postgresql database password
-pg_dump -h "${HOST_IP}" -p 5432 -U henninb -W -F t finance_db > finance_db.tar
-#psql -h "${HOST_IP}" -p 5432 -d postgres -U henninb < master.sql > finance-db-log.txt
-
+pg_dump -h "${HOST_IP}" -p 5432 -U henninb -W -F t -d finance_db > finance_db.tar
 
 exit 0
