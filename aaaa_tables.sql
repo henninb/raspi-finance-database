@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS t_account(
   account_owner TEXT, -- NULL for now
   account_type TEXT NOT NULL,
   active_status BOOLEAN NOT NULL,
-  moniker TEXT DEFAULT '',
+  moniker TEXT NOT NULL DEFAULT '',
   totals DECIMAL(12,2) DEFAULT 0.0,
   totals_balanced DECIMAL(12,2) DEFAULT 0.0,
   date_closed TIMESTAMP DEFAULT TO_TIMESTAMP(0),
@@ -90,8 +90,8 @@ CREATE TABLE IF NOT EXISTS t_summary (
   account_name_owner TEXT NOT NULL UNIQUE,
   totals DECIMAL(12,2) NOT NULL DEFAULT 0.0,
   totals_balanced DECIMAL(12,2) NOT NULL DEFAULT 0.0,
-  date_updated TIMESTAMP,
-  date_added TIMESTAMP
+  date_updated TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0),
+  date_added TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0)
 );
 ALTER TABLE t_summary ADD PRIMARY KEY (summary_id);
 
@@ -106,7 +106,9 @@ CREATE TABLE IF NOT EXISTS t_category(
 DROP TABLE IF EXISTS t_transaction_categories;
 CREATE TABLE IF NOT EXISTS t_transaction_categories(
   category_id BIGINT NOT NULL,
-  transaction_id BIGINT NOT NULL
+  transaction_id BIGINT NOT NULL,
+  date_updated TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0),
+  date_added TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0)
 );
 
 CREATE SEQUENCE t_transaction_transaction_id_seq start with 1001;
@@ -115,20 +117,19 @@ CREATE SEQUENCE t_transaction_transaction_id_seq start with 1001;
 DROP TABLE IF EXISTS t_transaction;
 CREATE TABLE IF NOT EXISTS t_transaction (
   transaction_id BIGINT DEFAULT nextval('t_transaction_transaction_id_seq') NOT NULL,
-  account_id BIGINT DEFAULT -1,
+  account_id BIGINT NOT NULL DEFAULT -1,
   account_type TEXT NOT NULL,
   account_name_owner TEXT NOT NULL,
   guid TEXT NOT NULL UNIQUE,
-  sha256 TEXT DEFAULT '', -- TODO: need to decomission
   transaction_date DATE NOT NULL,
   description TEXT NOT NULL,
-  category TEXT DEFAULT '',
+  category TEXT NOT NULL DEFAULT '',
   amount DECIMAL(12,2) NOT NULL DEFAULT 0.0,
-  cleared INTEGER DEFAULT 0,
+  cleared INTEGER NOT NULL DEFAULT 0,
   reoccurring BOOLEAN NOT NULL DEFAULT FALSE,
-  notes TEXT DEFAULT '',
-  date_updated TIMESTAMP DEFAULT TO_TIMESTAMP(0),
-  date_added TIMESTAMP DEFAULT TO_TIMESTAMP(0)
+  notes TEXT NOT NULL DEFAULT '',
+  date_updated TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0),
+  date_added TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0)
 );
 ALTER TABLE t_transaction ADD PRIMARY KEY (transaction_id);
 
