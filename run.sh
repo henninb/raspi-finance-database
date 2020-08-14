@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ $# -ne 0 ]; then
+  echo "Usage: $0 <noargs>"
+  exit 1
+fi
+
 cat aaaa_tables.sql zzzz_tables.sql > master.sql
 
 if [ "$OS" = "Darwin" ]; then

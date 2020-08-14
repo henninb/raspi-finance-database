@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ $# -ne 0 ]; then
+  echo "Usage: $0 <noargs>"
+  exit 1
+fi
+
 date=$(date '+%Y-%m-%d')
 
 if [ "$OS" = "Darwin" ]; then
