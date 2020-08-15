@@ -14,7 +14,7 @@ else
 fi
 
 echo postgresql database password
-pg_dump -h "${HOST_IP}" -p 5432 -U henninb -W -F t -d finance_db > "finance_db-v12-3-${date}.tar"
+pg_dump -h "${HOST_IP}" -p 5432 -U henninb -W -F t -d finance_db > "finance_db-v12-3-${date}.tar" | tee -a "finance-db-backup-${date}.log"
 
 echo scp "finance_db-v12-3-${date}.tar pi:/home/pi"
 

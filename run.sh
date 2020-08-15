@@ -5,6 +5,8 @@ if [ $# -ne 0 ]; then
   exit 1
 fi
 
+date=$(date '+%Y-%m-%d')
+
 cat aaaa_tables.sql zzzz_tables.sql > master.sql
 
 if [ "$OS" = "Darwin" ]; then
@@ -15,7 +17,7 @@ fi
 
 echo postgresql database password
 #psql -h "${HOST_IP}" -p 5432 -d postgres -U henninb < master.sql > finance-db-log.txt 2>&1
-psql -h "${HOST_IP}" -p 5432 -d postgres -U henninb < master.sql > finance-db-log.txt
+psql -h "${HOST_IP}" -p 5432 -d postgres -U henninb < master.sql | tee -a "finance-db-install-${date}.log"
 
 echo psql finance_db -U henninb -h "${HOST_IP}"
 
