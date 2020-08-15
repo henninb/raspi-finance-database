@@ -1,17 +1,24 @@
 #!/bin/sh
 
-if [ $# -ne 1 ] && [ $# -ne 2 ]; then
-  echo "Usage: $0 <restore-tar-file> [port]"
-  exit 1
-fi
-
 date=$(date '+%Y-%m-%d')
 restore_filename=$1
 port=5432
 
+if [ $# -ne 1 ] && [ $# -ne 2 ]; then
+  echo "Usage: $0 <restore-tar-file> [port]"
+  echo scp "pi:/home/pi/finance_db-v12-3-${date}.tar ."
+  exit 1
+fi
+
+if [ ! -f "${restore_filename}" ]; then
+  echo scp "pi:/home/pi/finance_db-v12-3-${date}.tar ."
+  exit 1
+fi
+
 if [ -n "$2" ]; then
   port=$2
 fi
+
 echo "port is set to '$port'."
 
 if [ "$OS" = "Darwin" ]; then
