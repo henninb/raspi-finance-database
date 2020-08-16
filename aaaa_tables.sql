@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS t_account(
 );
 ALTER TABLE t_account ADD PRIMARY KEY (account_id);
 
+--TODO: Not so sure an index is required here
 CREATE UNIQUE INDEX account_name_owner_idx on t_account(account_name_owner);
 
 CREATE OR REPLACE FUNCTION fn_upd_ts_account() RETURNS TRIGGER AS
