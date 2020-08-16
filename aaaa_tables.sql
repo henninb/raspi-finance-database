@@ -53,7 +53,10 @@ CREATE TABLE IF NOT EXISTS t_account(
 ALTER TABLE t_account ADD PRIMARY KEY (account_id);
 
 --TODO: Not so sure an index is required here
-CREATE UNIQUE INDEX account_name_owner_idx on t_account(account_name_owner);
+-- CREATE UNIQUE INDEX account_name_owner_idx on t_account(account_name_owner);
+
+ALTER TABLE t_account ADD constraint unique_account_name_owner_account_id unique (account_id, account_name_owner);
+
 
 CREATE OR REPLACE FUNCTION fn_upd_ts_account() RETURNS TRIGGER AS
 $$
@@ -136,7 +139,10 @@ ALTER TABLE t_transaction ADD PRIMARY KEY (transaction_id);
 
 ALTER TABLE t_transaction ADD CONSTRAINT transaction_constraint UNIQUE (account_name_owner, transaction_date, description, category, amount, notes);
 
-CREATE UNIQUE INDEX guid_idx ON t_transaction(guid);
+-- CREATE UNIQUE INDEX guid_idx ON t_transaction(guid);
+ALTER TABLE t_transaction ADD CONSTRAINT fk_account_id_account_name_owner
+   FOREIGN KEY(account_id, account_name_owner)
+      REFERENCES t_account(account_id, account_name_owner);
 
 CREATE OR REPLACE FUNCTION fn_ins_ts_transaction() RETURNS TRIGGER AS
 $$
