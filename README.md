@@ -22,3 +22,6 @@ UPDATE t_transaction as t SET account_id = a.account_id FROM t_account as a WHER
 ## constraint
 SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME='t_transaction' AND CONSTRAINT_TYPE = 'UNIQUE';
 CREATE UNIQUE INDEX account_name_owner_idx on t_account(account_name_owner);
+
+## select reoccuring transactions
+select * from t_transaction where transaction_date > '2020-01-01' and reoccurring=true;
