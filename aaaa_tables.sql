@@ -139,7 +139,6 @@ ALTER TABLE t_transaction ADD PRIMARY KEY (transaction_id);
 
 ALTER TABLE t_transaction ADD CONSTRAINT transaction_constraint UNIQUE (account_name_owner, transaction_date, description, category, amount, notes);
 
--- CREATE UNIQUE INDEX guid_idx ON t_transaction(guid);
 ALTER TABLE t_transaction ADD CONSTRAINT fk_account_id_account_name_owner
    FOREIGN KEY(account_id, account_name_owner)
       REFERENCES t_account(account_id, account_name_owner);
