@@ -140,8 +140,13 @@ ALTER TABLE t_transaction ADD PRIMARY KEY (transaction_id);
 ALTER TABLE t_transaction ADD CONSTRAINT transaction_constraint UNIQUE (account_name_owner, transaction_date, description, category, amount, notes);
 
 ALTER TABLE t_transaction ADD CONSTRAINT fk_account_id_account_name_owner
-   FOREIGN KEY(account_id, account_name_owner)
-      REFERENCES t_account(account_id, account_name_owner);
+   FOREIGN KEY(account_id, account_name_owner) REFERENCES t_account(account_id, account_name_owner);
+
+ALTER TABLE t_transaction ADD CONSTRAINT t_transaction_description_lowercase_ck CHECK (description = lower(description));
+
+ALTER TABLE t_transaction ADD CONSTRAINT t_transaction_category_lowercase_ck CHECK (category = lower(category));
+
+ALTER TABLE t_transaction ADD CONSTRAINT t_transaction_notes_lowercase_ck CHECK (notes = lower(notes));
 
 CREATE OR REPLACE FUNCTION fn_ins_ts_transaction() RETURNS TRIGGER AS
 $$
