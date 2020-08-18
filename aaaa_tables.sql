@@ -28,10 +28,14 @@ CREATE TABLE IF NOT EXISTS t_payment(
   payment_id BIGINT DEFAULT nextval('t_payment_payment_id_seq') NOT NULL,
   account_name_owner TEXT NOT NULL,
   transaction_date DATE NOT NULL,
-  amount DECIMAL(12,2) NOT NULL DEFAULT 0.0
+  amount DECIMAL(12,2) NOT NULL DEFAULT 0.0,
+  guid_source TEXT,
+  guid_destination TEXT
 );
 ALTER TABLE t_payment ADD PRIMARY KEY (payment_id);
 ALTER TABLE t_payment ADD CONSTRAINT payment_constraint UNIQUE (account_name_owner, transaction_date, amount);
+ALTER TABLE t_payment ADD CONSTRAINT fk_guid_source FOREIGN KEY(guid_source) REFERENCES t_transaction(guid);
+ALTER TABLE t_payment ADD CONSTRAINT fk_guid_destination FOREIGN KEY(guid_destination) REFERENCES t_transaction(guid)
 
 --TRUNCATE TABLE IF EXISTS t_account;
 CREATE SEQUENCE t_account_account_id_seq START WITH 1001;
@@ -55,10 +59,8 @@ ALTER TABLE t_account ADD PRIMARY KEY (account_id);
 --TODO: Not so sure an index is required here
 -- CREATE UNIQUE INDEX account_name_owner_idx on t_account(account_name_owner);
 
-ALTER TABLE t_account ADD constraint unique_account_name_owner_account_id unique (account_id, account_name_owner, account_type);
-
+ALTER TABLE t_account ADD CONSTRAINT unique_account_name_owner_account_id UNIQUE (account_id, account_name_owner, account_type);
 ALTER TABLE t_account ADD CONSTRAINT t_account_account_name_owner_lowercase_ck CHECK (account_name_owner = lower(account_name_owner));
-
 ALTER TABLE t_account ADD CONSTRAINT t_account_account_type_lowercase_ck CHECK (account_type = lower(account_type));
 
 CREATE OR REPLACE FUNCTION fn_upd_ts_account() RETURNS TRIGGER AS
