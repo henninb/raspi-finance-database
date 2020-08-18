@@ -55,8 +55,11 @@ ALTER TABLE t_account ADD PRIMARY KEY (account_id);
 --TODO: Not so sure an index is required here
 -- CREATE UNIQUE INDEX account_name_owner_idx on t_account(account_name_owner);
 
-ALTER TABLE t_account ADD constraint unique_account_name_owner_account_id unique (account_id, account_name_owner);
+ALTER TABLE t_account ADD constraint unique_account_name_owner_account_id unique (account_id, account_name_owner, account_type);
 
+ALTER TABLE t_account ADD CONSTRAINT t_account_account_name_owner_lowercase_ck CHECK (account_name_owner = lower(account_name_owner));
+
+ALTER TABLE t_account ADD CONSTRAINT t_account_account_type_lowercase_ck CHECK (account_type = lower(account_type));
 
 CREATE OR REPLACE FUNCTION fn_upd_ts_account() RETURNS TRIGGER AS
 $$
@@ -141,7 +144,7 @@ ALTER TABLE t_transaction ADD PRIMARY KEY (transaction_id);
 ALTER TABLE t_transaction ADD CONSTRAINT transaction_constraint UNIQUE (account_name_owner, transaction_date, description, category, amount, notes);
 
 --ALTER TABLE t_transaction DROP CONSTRAINT fk_account_id_account_name_owner;
-ALTER TABLE t_transaction ADD CONSTRAINT fk_account_id_account_name_owner FOREIGN KEY(account_id, account_name_owner, account_type) REFERENCES t_account(account_id, account_name_owner_account_type);
+ALTER TABLE t_transaction ADD CONSTRAINT fk_account_id_account_name_owner FOREIGN KEY(account_id, account_name_owner, account_type) REFERENCES t_account(account_id, account_name_owner, account_type);
 
 ALTER TABLE t_transaction ADD CONSTRAINT t_transaction_description_lowercase_ck CHECK (description = lower(description));
 ALTER TABLE t_transaction ADD CONSTRAINT t_transaction_category_lowercase_ck CHECK (category = lower(category));
