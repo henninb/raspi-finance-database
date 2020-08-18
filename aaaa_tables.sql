@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS t_transaction (
   amount DECIMAL(12,2) NOT NULL DEFAULT 0.0,
   cleared INTEGER NOT NULL DEFAULT 0,
   reoccurring BOOLEAN NOT NULL DEFAULT FALSE,
+  active_status BOOLEAN NOT NULL DEFAULT TRUE,
   notes TEXT NOT NULL DEFAULT '',
   date_updated TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0),
   date_added TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0)
@@ -139,14 +140,13 @@ ALTER TABLE t_transaction ADD PRIMARY KEY (transaction_id);
 
 ALTER TABLE t_transaction ADD CONSTRAINT transaction_constraint UNIQUE (account_name_owner, transaction_date, description, category, amount, notes);
 
-ALTER TABLE t_transaction ADD CONSTRAINT fk_account_id_account_name_owner
-   FOREIGN KEY(account_id, account_name_owner) REFERENCES t_account(account_id, account_name_owner);
+--ALTER TABLE t_transaction DROP CONSTRAINT fk_account_id_account_name_owner;
+ALTER TABLE t_transaction ADD CONSTRAINT fk_account_id_account_name_owner FOREIGN KEY(account_id, account_name_owner, account_type) REFERENCES t_account(account_id, account_name_owner_account_type);
 
 ALTER TABLE t_transaction ADD CONSTRAINT t_transaction_description_lowercase_ck CHECK (description = lower(description));
-
 ALTER TABLE t_transaction ADD CONSTRAINT t_transaction_category_lowercase_ck CHECK (category = lower(category));
-
 ALTER TABLE t_transaction ADD CONSTRAINT t_transaction_notes_lowercase_ck CHECK (notes = lower(notes));
+ALTER TABLE t_transaction ADD CONSTRAINT t_transaction_account_type_lowercase_ck CHECK (account_type = lower(account_type));
 
 CREATE OR REPLACE FUNCTION fn_ins_ts_transaction() RETURNS TRIGGER AS
 $$
