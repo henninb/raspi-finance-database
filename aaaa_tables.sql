@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS t_payment(
   account_name_owner TEXT NOT NULL,
   transaction_date DATE NOT NULL,
   amount DECIMAL(12,2) NOT NULL DEFAULT 0.0,
-  guid_source TEXT,
-  guid_destination TEXT
+  guid_source TEXT NOT NULL,
+  guid_destination TEXT NOT NULL
 );
 ALTER TABLE t_payment ADD PRIMARY KEY (payment_id);
 ALTER TABLE t_payment ADD CONSTRAINT payment_constraint UNIQUE (account_name_owner, transaction_date, amount);
