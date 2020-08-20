@@ -29,7 +29,7 @@ SELECT (A.debits - B.credits) AS TOTALS FROM
       ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B;
 
 --RAISE NOTICE 'Looking for dupliate GUIDs';
-SELECT guid FROM t_transaction GROUP BY 1 HAVING COUNT(*) > 1;
+--SELECT guid FROM t_transaction GROUP BY 1 HAVING COUNT(*) > 1;
 
 CREATE OR REPLACE FUNCTION fn_ins_summary() RETURNS void AS $$
   INSERT INTO t_summary(summary_id, guid, account_name_owner, totals, totals_balanced, date_updated, date_added)
@@ -54,19 +54,9 @@ SELECT fn_ins_summary();
 --SELECT NULL AS 'Summary by account';
 SELECT * FROM t_summary WHERE guid IN (SELECT guid FROM t_summary ORDER BY date_added DESC LIMIT 1) ORDER BY account_name_owner;
 
---RAISE NOTICE 'Two or more spaces in the description';
---SELECT NULL AS 'Two or more spaces in the description';
 SELECT description FROM t_transaction WHERE description like '%  %';
-
---RAISE NOTICE 'Two or more spaces in the notes';
---SELECT NULL AS 'Two or more spaces in the notes';
 SELECT notes FROM t_transaction WHERE notes like '%  %';
 
---RAISE NOTICE 'Two or more spaces in the category';
---SELECT NULL AS 'Two or more spaces in the category';
-SELECT category FROM t_transaction WHERE category like '%  %';
 
 --\copy (SELECT * FROM t_transaction) TO finance_db.csv WITH (FORMAT csv, HEADER true)
 
-
-SELECT * FROM t_transaction WHERE CAST(transaction_date AS DATE) = '2019-09-27';
