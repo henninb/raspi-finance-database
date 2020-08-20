@@ -1,41 +1,55 @@
+-- select into example
 SELECT count(*) into void_record_i from t_transaction WHERE amount='0.00' AND cleared=1 AND description = 'void' AND notes='';
---RAISE notice 'Number of void records deleted: %', void_record_i;
 
+-- select into example
 SELECT count(*) into none_record_i from t_transaction WHERE amount='0.00' AND cleared=1 AND description = 'none' AND notes='';
---RAISE notice 'Number of none records deleted: %', none_record_i;
 
-DELETE FROM t_transaction WHERE amount='0.00' AND cleared=1 AND description = 'void' AND notes='';
-DELETE FROM t_transaction WHERE amount='0.00' AND cleared=1 AND description = 'none' AND notes='';
+--DELETE FROM t_transaction WHERE amount='0.00' AND cleared=1 AND description = 'void' AND notes='';
+--DELETE FROM t_transaction WHERE amount='0.00' AND cleared=1 AND description = 'none' AND notes='';
 
 --UPDATE t_transaction set amount = (amount * -1.0) where account_type = 'credit';
 
-UPDATE t_transaction SET account_id = x.account_id, account_type = x.account_type FROM (SELECT account_id, account_name_owner, account_type FROM t_account) x WHERE t_transaction.account_name_owner = x.account_name_owner;
+--UPDATE t_transaction SET account_id = x.account_id, account_type = x.account_type FROM (SELECT account_id, account_name_owner, account_type FROM t_account) x WHERE t_transaction.account_name_owner = x.account_name_owner;
 
-SELECT account_name_owner, SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' GROUP BY account_name_owner ORDER BY account_name_owner;
-SELECT account_name_owner, SUM(amount) AS totals FROM t_transaction GROUP BY account_name_owner ORDER BY account_name_owner;
+-- total credits by account
+SELECT account_name_owner, SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' and active_status  = true GROUP BY account_name_owner ORDER BY account_name_owner;
 
+-- total debits by account
+SELECT account_name_owner, SUM(amount) AS credits FROM t_transaction WHERE account_type = 'debit' and active_status  = true GROUP BY account_name_owner ORDER BY account_name_owner;
+
+-- totals by account
+SELECT account_name_owner, SUM(amount) AS totals FROM t_transaction where active_status = true GROUP BY account_name_owner ORDER BY account_name_owner;
+
+-- total debits and total credits
 SELECT A.debits AS DEBITS, B.credits AS CREDITS FROM
-      ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' ) A,
-      ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B;
+      ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' and active_status = true) A,
+      ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' and active_status = true) B;
 
---RAISE NOTICE 'Not sure';
-UPDATE t_account SET totals = x.totals FROM (SELECT (A.debits - B.credits) AS totals FROM
-      ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' ) A,
-      ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B) x WHERE t_account.account_name_owner = 'grand.total_dummy';
+-- fix account type issue
+ALTER TABLE t_transaction DISABLE TRIGGER ALL;
+update t_transaction set account_type = 'credit' where account_name_owner = 'jcpenney_kari' and account_type = 'debit';
+update t_account set account_type = 'credit' where account_name_owner = 'jcpenney_kari' and account_type = 'debit';
+update t_account set active_status = false where account_name_owner = 'jcpenney_kari';
+ALTER TABLE t_transaction ENABLE TRIGGER ALL;
+commit;
+select count(*) from t_transaction where account_name_owner = 'jcpenney_kari' and account_type = 'debit';
 
---RAISE NOTICE 'Grand Total';
+select * from t_transaction where transaction_id = 8729 and amount = 2.84;
+update t_transaction set transaction_date = '2019-12-23' where transaction_id = 8729 and amount = 2.84;
+commit;
+
+-- actual 'Grand Total';
 SELECT (A.debits - B.credits) AS TOTALS FROM
-      ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' ) A,
-      ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' ) B;
+      ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' and active_status  = true) A,
+      ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' and active_status = true) B; 
+     
+UPDATE t_account SET totals = x.totals FROM (SELECT (A.debits - B.credits) AS totals FROM
+      ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' and active_status = true) A,
+      ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' and active_status = true) B) x WHERE t_account.account_name_owner = 'grand.total_dummy';
 
---RAISE NOTICE 'Looking for dupliate GUIDs';
+
+-- Looking for dupliate GUIDs;
 --SELECT guid FROM t_transaction GROUP BY 1 HAVING COUNT(*) > 1;
-
-update t_transaction set description = replace(description , '  ', ' ') where description like '%  %';
-commit;
-update t_transaction set notes = replace(notes , '  ', ' ') where notes like '%  %';
-commit;
-
 
 CREATE OR REPLACE FUNCTION fn_ins_summary() RETURNS void AS $$
   INSERT INTO t_summary(summary_id, guid, account_name_owner, totals, totals_balanced, date_updated, date_added)
@@ -71,3 +85,11 @@ commit;
 
 --\copy (SELECT * FROM t_transaction) TO finance_db.csv WITH (FORMAT csv, HEADER true)
 
+-- count of cleared transactions by week descending 
+SELECT date_trunc('week', transaction_date::date) AS weekly, COUNT(*) FROM t_transaction where cleared = 1 GROUP BY weekly ORDER BY weekly desc;
+
+-- count of cleared transactions spent by week 
+SELECT date_trunc('week', transaction_date::date) AS weekly, sum(amount) FROM t_transaction where cleared = 1 and account_type = 'credit' and description != 'payment' and account_name_owner != 'medical' GROUP BY weekly ORDER BY weekly desc;
+
+-- count of cleared transactions spent by month 
+SELECT date_trunc('month', transaction_date::date) AS monthly, sum(amount) FROM t_transaction where cleared = 1 and account_type = 'credit' and description != 'payment' and account_name_owner != 'medical' GROUP BY monthly ORDER BY monthly desc;
