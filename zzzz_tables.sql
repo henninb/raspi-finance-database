@@ -31,6 +31,12 @@ SELECT (A.debits - B.credits) AS TOTALS FROM
 --RAISE NOTICE 'Looking for dupliate GUIDs';
 --SELECT guid FROM t_transaction GROUP BY 1 HAVING COUNT(*) > 1;
 
+update t_transaction set description = replace(description , '  ', ' ') where description like '%  %';
+commit;
+update t_transaction set notes = replace(notes , '  ', ' ') where notes like '%  %';
+commit;
+
+
 CREATE OR REPLACE FUNCTION fn_ins_summary() RETURNS void AS $$
   INSERT INTO t_summary(summary_id, guid, account_name_owner, totals, totals_balanced, date_updated, date_added)
   (SELECT nextval('t_summary_summary_id_seq'), C.uuid AS guid, A.account_name_owner, A.totals AS totals, B.totals_balanced AS totals_balanced, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP FROM
@@ -57,6 +63,11 @@ SELECT * FROM t_summary WHERE guid IN (SELECT guid FROM t_summary ORDER BY date_
 SELECT description FROM t_transaction WHERE description like '%  %';
 SELECT notes FROM t_transaction WHERE notes like '%  %';
 
+update t_transaction set notes = replace(notes , '  ', ' ') where notes like '%  %';
+commit;
+
+update t_transaction set description = replace(description , '  ', ' ') where description like '%  %';
+commit;
 
 --\copy (SELECT * FROM t_transaction) TO finance_db.csv WITH (FORMAT csv, HEADER true)
 
