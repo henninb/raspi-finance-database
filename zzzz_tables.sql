@@ -29,14 +29,9 @@ SELECT A.debits AS DEBITS, B.credits AS CREDITS FROM
 ALTER TABLE t_transaction DISABLE TRIGGER ALL;
 update t_transaction set account_type = 'credit' where account_name_owner = 'jcpenney_kari' and account_type = 'debit';
 update t_account set account_type = 'credit' where account_name_owner = 'jcpenney_kari' and account_type = 'debit';
-update t_account set active_status = false where account_name_owner = 'jcpenney_kari';
 ALTER TABLE t_transaction ENABLE TRIGGER ALL;
 commit;
 select count(*) from t_transaction where account_name_owner = 'jcpenney_kari' and account_type = 'debit';
-
-select * from t_transaction where transaction_id = 8729 and amount = 2.84;
-update t_transaction set transaction_date = '2019-12-23' where transaction_id = 8729 and amount = 2.84;
-commit;
 
 -- actual 'Grand Total';
 SELECT (A.debits - B.credits) AS TOTALS FROM
