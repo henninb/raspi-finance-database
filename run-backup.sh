@@ -2,6 +2,7 @@
 
 date=$(date '+%Y-%m-%d')
 port=5432
+version=v12-3
 
 if [ "$OS" = "Darwin" ]; then
   server=$(ipconfig getifaddr en0)
@@ -9,8 +10,9 @@ else
   server=$(hostname -i | awk '{print $1}')
 fi
 
-if [ $# -ne 1 ] && [ $# -ne 2 ]; then
-  echo "Usage: $0 [server] [port]"
+if [ $# -ne 1 ] && [ $# -ne 2 ] && [ $# -ne 3 ]; then
+  echo "Usage: $0 [server] [port] [version]"
+  echo "$0 192.168.100.124 5432 v12-4"
   exit 1
 fi
 
@@ -22,12 +24,16 @@ if [ -n "$2" ]; then
   port=$2
 fi
 
-echo "server is '$server', port is set to '$port'."
+if [ -n "$3" ]; then
+  version=$3
+fi
+
+echo "server is '$server', port is set to '$port' on version '$version'."
 
 echo postgresql database password
-pg_dump -h "${server}" -p ${port} -U henninb -W -F t -d finance_db > "finance_db-v12-3-${date}.tar" | tee -a "finance-db-backup-${date}.log"
+pg_dump -h "${server}" -p ${port} -U henninb -W -F t -d finance_db > "finance_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
 
-echo scp "finance_db-v12-3-${date}.tar pi:/home/pi"
+echo scp "finance_db-${version}-${date}.tar pi:/home/pi"
 
 exit 0
 
