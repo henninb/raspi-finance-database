@@ -3,3 +3,5 @@ nohup.out
 .idea
 *.log
 *.tar
+*.dat
+restore.sql
