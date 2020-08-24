@@ -1,21 +1,34 @@
 #!/bin/sh
 
-if [ $# -ne 0 ]; then
-  echo "Usage: $0 <noargs>"
+date=$(date '+%Y-%m-%d')
+port=5432
+
+if [ "$OS" = "Darwin" ]; then
+  server=$(ipconfig getifaddr en0)
+else
+  server=$(hostname -i | awk '{print $1}')
+fi
+
+if [ $# -ne 1 ] && [ $# -ne 2 ]; then
+  echo "Usage: $0 [server] [port]"
   exit 1
 fi
 
-date=$(date '+%Y-%m-%d')
-
-if [ "$OS" = "Darwin" ]; then
-  HOST_IP=$(ipconfig getifaddr en0)
-else
-  HOST_IP=$(hostname -i | awk '{print $1}')
+if [ -n "$1" ]; then
+  server=$1
 fi
 
+if [ -n "$2" ]; then
+  port=$2
+fi
+
+echo "server is '$server', port is set to '$port'."
+
 echo postgresql database password
-pg_dump -h "${HOST_IP}" -p 5432 -U henninb -W -F t -d finance_db > "finance_db-v12-3-${date}.tar" | tee -a "finance-db-backup-${date}.log"
+pg_dump -h "${server}" -p ${port} -U henninb -W -F t -d finance_db > "finance_db-v12-3-${date}.tar" | tee -a "finance-db-backup-${date}.log"
 
 echo scp "finance_db-v12-3-${date}.tar pi:/home/pi"
 
 exit 0
+
+The most important point to remember is that both dump and restore should be performed using the latest binaries. For example, if we need to migrate from version 9.3 to version 11, we should be using the pg_dump binary of PostgreSQL 11 to connect to 9.3
