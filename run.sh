@@ -16,9 +16,8 @@ else
 fi
 
 echo postgresql database password
-#psql -h "${HOST_IP}" -p 5432 -d postgres -U henninb < master.sql > finance-db-log.txt 2>&1
 psql -h "${HOST_IP}" -p 5432 -d postgres -U henninb < master.sql | tee -a "finance-db-install-${date}.log"
 
-echo psql finance_db -U henninb -h "${HOST_IP}"
+echo psql finance_db -U henninb -h "${HOST_IP}" -p 5432
 
 exit 0
