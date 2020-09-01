@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS t_transaction (
     description TEXT NOT NULL,
     category TEXT NOT NULL DEFAULT '',
     amount DECIMAL(12,2) NOT NULL DEFAULT 0.0,
-    cleared INTEGER NOT NULL DEFAULT 0,
+    transaction_state TEXT NOT NULL DEFAULT 'undefined',
     reoccurring BOOLEAN NOT NULL DEFAULT FALSE,
     active_status BOOLEAN NOT NULL DEFAULT TRUE,
     notes TEXT NOT NULL DEFAULT '',
@@ -120,8 +120,11 @@ CREATE TABLE IF NOT EXISTS t_transaction (
     CONSTRAINT t_transaction_category_lowercase_ck CHECK (category = lower(category)),
     CONSTRAINT t_transaction_notes_lowercase_ck CHECK (notes = lower(notes)),
     CONSTRAINT t_transaction_account_type_lowercase_ck CHECK (account_type = lower(account_type)),
-    CONSTRAINT fk_account_id_account_name_owner FOREIGN KEY(account_id, account_name_owner, account_type) REFERENCES t_account(account_id, account_name_owner, account_type)
+--    CONSTRAINT fk_category_id_transaction_id FOREIGN KEY(category_id, transaction_id) REFERENCES t_transaction_categories(category_id, transaction_id) ON DELETE CASCADE,
+    CONSTRAINT fk_account_id_account_name_owner FOREIGN KEY(account_id, account_name_owner, account_type) REFERENCES t_account(account_id, account_name_owner, account_type) ON DELETE CASCADE
 );
+
+-- ALTER TABLE t_transaction ADD CONSTRAINT fk_account_id_account_name_owner FOREIGN KEY (account_id, account_name_owner, account_type) REFERENCES ChildTable (xyz) ON DELETE CASCADE
 
 CREATE OR REPLACE FUNCTION fn_ins_ts_transaction() RETURNS TRIGGER AS
 $$
