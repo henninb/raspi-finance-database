@@ -27,7 +27,7 @@ CREATE SEQUENCE IF NOT EXISTS seq_account_id START WITH 1001;
 
 CREATE TABLE IF NOT EXISTS t_account
 (
-    account_id         BIGINT      NOT NULL DEFAULT nextval(seq_account_id),
+    account_id         BIGINT      NOT NULL DEFAULT nextval('seq_account_id'),
     account_name_owner TEXT UNIQUE NOT NULL,
     account_name       TEXT, -- NULL for now
     account_owner      TEXT, -- NULL for now
@@ -85,7 +85,7 @@ CREATE SEQUENCE IF NOT EXISTS seq_category_id start with 1001;
 
 CREATE TABLE IF NOT EXISTS t_category
 (
-    category_id  BIGINT      NOT NULL DEFAULT nextval(seq_category_id),
+    category_id  BIGINT      NOT NULL DEFAULT nextval('seq_category_id'),
     category     TEXT UNIQUE NOT NULL,
     date_updated TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
     date_added   TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
@@ -115,7 +115,7 @@ CREATE SEQUENCE IF NOT EXISTS seq_transaction_id start with 1001;
 
 CREATE TABLE IF NOT EXISTS t_transaction
 (
-    transaction_id     BIGINT         NOT NULL DEFAULT nextval(seq_transaction_id),
+    transaction_id     BIGINT         NOT NULL DEFAULT nextval('seq_transaction_id'),
     account_id         BIGINT         NOT NULL DEFAULT -1,
     account_type       TEXT           NOT NULL DEFAULT 'undefined',
     account_name_owner TEXT           NOT NULL,
@@ -188,7 +188,7 @@ CREATE SEQUENCE IF NOT EXISTS seq_payment_id START WITH 1001;
 
 CREATE TABLE IF NOT EXISTS t_payment
 (
-    payment_id         BIGINT         NOT NULL DEFAULT nextval(seq_payment_id),
+    payment_id         BIGINT         NOT NULL DEFAULT nextval('seq_payment_id'),
     account_name_owner TEXT           NOT NULL,
     transaction_date   DATE           NOT NULL,
     amount             DECIMAL(12, 2) NOT NULL DEFAULT 0.0,
