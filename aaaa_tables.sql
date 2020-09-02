@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS t_category
     category_id  BIGSERIAL      PRIMARY KEY,
     category     TEXT UNIQUE NOT NULL,
     date_updated TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
-    date_added   TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
+    date_added   TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0)
 );
 
 ---------------------------
