@@ -30,6 +30,9 @@ if [ -n "$3" ]; then
 fi
 
 echo "server is '$server', port is set to '$port'."
+echo "Press enter to continue"
+read -r x
+echo "$x" > /dev/null
 
 echo postgresql database password
 if psql -h "${server}" -p "${port}" -d postgres -U henninb < finance_db-drop.sql; then

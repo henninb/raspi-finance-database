@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS t_account
     totals             DECIMAL(12, 2)       DEFAULT 0.0,
     totals_balanced    DECIMAL(12, 2)       DEFAULT 0.0,
     date_closed        TIMESTAMP            DEFAULT TO_TIMESTAMP(0),
-    date_updated       TIMESTAMP            DEFAULT TO_TIMESTAMP(0),
-    date_added         TIMESTAMP            DEFAULT TO_TIMESTAMP(0),
+    date_updated       TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
+    date_added         TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
     CONSTRAINT unique_account_name_owner_account_id UNIQUE (account_id, account_name_owner, account_type),
     CONSTRAINT ck_account_type CHECK (account_type IN ('debit', 'credit', 'undefined')),
     CONSTRAINT ck_account_type_lowercase CHECK (account_type = lower(account_type))
