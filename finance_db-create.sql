@@ -257,6 +257,8 @@ CREATE TRIGGER tr_update_timestamp_payment
     FOR EACH ROW
 EXECUTE PROCEDURE fn_update_timestamp_payment();
 
+COMMIT;
+
 -- check for locks
 -- SELECT pid, usename, pg_blocking_pids(pid) as blocked_by, query as blocked_query from pg_stat_activity where cardinality(pg_blocking_pids(pid)) > 0;
 
