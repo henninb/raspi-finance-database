@@ -15,8 +15,11 @@ else
   HOST_IP=$(hostname -i | awk '{print $1}')
 fi
 
-echo postgresql database password
-psql -h "${HOST_IP}" -p 5432 -d postgres -U henninb < master.sql | tee -a "finance-db-install-${date}.log"
+echo enter postgres user password to add finance_db objects
+psql -h "${HOST_IP}" -p 5432 -d postgres -U henninb < master.sql | tee -a "finance_db-create-${date}.log"
+
+echo enter postgres user password to add finance_test_db objects
+psql -h "${HOST_IP}" -p 5432 -d postgres -U henninb < finance_test_db-create.sql | tee -a "finance_test_db-create-${date}.log"
 
 echo psql finance_db -U henninb -h "${HOST_IP}" -p 5432
 
