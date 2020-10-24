@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS t_account
     date_updated       TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
     date_added         TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
     CONSTRAINT unique_account_name_owner_account_id UNIQUE (account_id, account_name_owner, account_type),
+    CONSTRAINT unique_account_name_owner_account_type UNIQUE (account_name_owner, account_type),
     CONSTRAINT ck_account_type CHECK (account_type IN ('debit', 'credit', 'undefined')),
     CONSTRAINT ck_account_type_lowercase CHECK (account_type = lower(account_type))
 );
@@ -153,8 +154,7 @@ CREATE TABLE IF NOT EXISTS t_transaction
     notes              TEXT           NOT NULL DEFAULT '',
     date_updated       TIMESTAMP      NOT NULL DEFAULT TO_TIMESTAMP(0),
     date_added         TIMESTAMP      NOT NULL DEFAULT TO_TIMESTAMP(0),
-    CONSTRAINT transaction_constraint UNIQUE (account_name_owner, transaction_date, description, category, amount,
-                                              notes),
+    CONSTRAINT transaction_constraint UNIQUE (account_name_owner, transaction_date, description, category, amount, notes),
     CONSTRAINT t_transaction_description_lowercase_ck CHECK (description = lower(description)),
     CONSTRAINT t_transaction_category_lowercase_ck CHECK (category = lower(category)),
     CONSTRAINT t_transaction_notes_lowercase_ck CHECK (notes = lower(notes)),
@@ -256,7 +256,7 @@ EXECUTE PROCEDURE fn_update_timestamp_payment();
 CREATE TABLE IF NOT EXISTS t_parm
 (
     parm_id      BIGSERIAL PRIMARY KEY,
-    parm_name    TEXT      NOT NULL,
+    parm_name    TEXT   UNIQUE   NOT NULL,
     parm_value   TEXT      NOT NULL,
     date_updated TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0),
     date_added   TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0)
@@ -298,3 +298,6 @@ EXECUTE PROCEDURE fn_update_timestamp_parm();
 --insert into t_parm(parm_name, parm_value) VALUES('payment_account', '');
 
 COMMIT;
+-- check for locks
+-- SELECT pid, usename, pg_blocking_pids(pid) as blocked_by, query as blocked_query from pg_stat_activity where cardinality(pg_blocking_pids(pid)) > 0;
+
