@@ -74,3 +74,13 @@ select * from t_transaction  where transaction_state = 'outstanding' and transac
 SELECT account_name_owner, SUM(amount) as totals FROM t_transaction WHERE transaction_state = 'cleared' and account_name_owner in (select account_name_owner from t_account where account_type = 'credit' and active_status = true)  group by account_name_owner having sum(amount) > 0;
 
 SELECT account_name_owner FROM t_transaction WHERE transaction_state = 'cleared' and account_name_owner in (select account_name_owner from t_account where account_type = 'credit' and active_status = true)  group by account_name_owner having sum(amount) > 0;
+
+
+-- find all the accounts that need payments
+SELECT account_name_owner, SUM(amount) as totals FROM t_transaction WHERE transaction_state = 'cleared' and account_name_owner in (select account_name_owner from t_account where account_type = 'credit' and active_status = true) or(transaction_state = 'outstanding' and account_type = 'credit' and description ='payment') group by account_name_owner having sum(amount) > 0 order by account_name_owner;
+
+SELECT account_name_owner, amount as totals from t_transaction where transaction_state = 'outstanding' and account_type = 'credit' and description ='payment';
+
+-- find all the accounts that need payments
+SELECT account_name_owner FROM t_transaction WHERE transaction_state = 'cleared' and account_name_owner in (select account_name_owner from t_account where account_type = 'credit' and active_status = true) or (transaction_state = 'outstanding' and account_type = 'credit' and description ='payment') group by account_name_owner having sum(amount) > 0 order by account_name_owner;
+
