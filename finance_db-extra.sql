@@ -62,3 +62,15 @@ SELECT date_trunc('week', transaction_date::date) AS weekly, sum(amount) FROM t_
 
 -- count of cleared transactions spent by month
 SELECT date_trunc('month', transaction_date::date) AS monthly, sum(amount) FROM t_transaction WHERE transaction_state='cleared' AND account_type = 'credit' AND description != 'payment' AND account_name_owner != 'medical' GROUP BY monthly ORDER BY monthly DESC;
+
+-- find all the old future credits
+select * from t_transaction  where transaction_state = 'future' and transaction_date < now() and account_type='credit';
+
+-- find all the old outstanding credits
+select * from t_transaction  where transaction_state = 'outstanding' and transaction_date < now() and account_type='credit';
+
+
+-- find all the accounts that need payments
+SELECT account_name_owner, SUM(amount) as totals FROM t_transaction WHERE transaction_state = 'cleared' and account_name_owner in (select account_name_owner from t_account where account_type = 'credit' and active_status = true)  group by account_name_owner having sum(amount) > 0;
+
+SELECT account_name_owner FROM t_transaction WHERE transaction_state = 'cleared' and account_name_owner in (select account_name_owner from t_account where account_type = 'credit' and active_status = true)  group by account_name_owner having sum(amount) > 0;
