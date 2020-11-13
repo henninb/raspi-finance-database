@@ -62,6 +62,8 @@ EXECUTE PROCEDURE fn_update_timestamp_account();
 CREATE OR REPLACE FUNCTION fn_insert_timestamp_account() RETURNS TRIGGER AS
 $$
 BEGIN
+    NEW.active_status := true;
+    NEW.date_updated := CURRENT_TIMESTAMP;
     NEW.date_added := CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
@@ -91,6 +93,7 @@ CREATE OR REPLACE FUNCTION fn_insert_timestamp_category() RETURNS TRIGGER AS
 $$
 DECLARE
 BEGIN
+    NEW.active_status := true;
     NEW.date_added := CURRENT_TIMESTAMP;
     NEW.date_updated := CURRENT_TIMESTAMP;
     RETURN NEW;
@@ -132,6 +135,18 @@ CREATE TABLE IF NOT EXISTS t_transaction_categories
     PRIMARY KEY (category_id, transaction_id)
 );
 
+-------------------
+-- ReceiptImage  --
+-------------------
+CREATE TABLE IF NOT EXISTS t_receipt_image
+(
+    receipt_image_id   BIGSERIAL PRIMARY KEY,
+    transaction_id BIGINT  UNIQUE  NOT NULL,
+    receipt_image  BYTEA     NOT NULL
+    --date_updated   TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0), -- TODO: will need a trigger for this
+    --date_added     TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0), -- TODO: will need a trigger for this
+);
+
 -----------------
 -- Transaction --
 -----------------
@@ -150,8 +165,10 @@ CREATE TABLE IF NOT EXISTS t_transaction
     amount             DECIMAL(12, 2) NOT NULL DEFAULT 0.0,
     transaction_state  TEXT           NOT NULL DEFAULT 'undefined',
     reoccurring        BOOLEAN        NOT NULL DEFAULT FALSE,
+    reoccurring_type   TEXT           NULL DEFAULT 'undefined',
     active_status      BOOLEAN        NOT NULL DEFAULT TRUE,
     notes              TEXT           NOT NULL DEFAULT '',
+    receipt_image      BYTEA          NULL,
     date_updated       TIMESTAMP      NOT NULL DEFAULT TO_TIMESTAMP(0),
     date_added         TIMESTAMP      NOT NULL DEFAULT TO_TIMESTAMP(0),
     CONSTRAINT transaction_constraint UNIQUE (account_name_owner, transaction_date, description, category, amount,
@@ -162,14 +179,20 @@ CREATE TABLE IF NOT EXISTS t_transaction
     --CONSTRAINT fk_category_id_transaction_id FOREIGN KEY(transaction_id) REFERENCES t_transaction_categories(category_id, transaction_id) ON DELETE CASCADE,
     CONSTRAINT ck_transaction_state CHECK (transaction_state IN ('outstanding', 'future', 'cleared', 'undefined')),
     CONSTRAINT ck_account_type CHECK (account_type IN ('debit', 'credit', 'undefined')),
+    CONSTRAINT ck_reoccurring_type CHECK (reoccurring_type IN ('annually', 'bi-annually', 'every_two_weeks', 'monthly', 'undefined')),
     CONSTRAINT fk_account_id_account_name_owner FOREIGN KEY (account_id, account_name_owner, account_type) REFERENCES t_account (account_id, account_name_owner, account_type) ON DELETE CASCADE,
     CONSTRAINT fk_category FOREIGN KEY (category) REFERENCES t_category (category) ON DELETE CASCADE
 );
+
+--ALTER TABLE t_transaction ADD CONSTRAINT ck_reoccurring_type CHECK (reoccurring_type IN ('annually', 'bi-annually', 'every_two_weeks', 'monthly', 'undefined')),
+--ALTER TABLE t_transaction ADD COLUMN reoccurring_type   TEXT           NULL DEFAULT 'undefined';
 
 CREATE OR REPLACE FUNCTION fn_insert_timestamp_transaction() RETURNS TRIGGER AS
 $$
 DECLARE
 BEGIN
+    NEW.reoccurring_type = 'undefined';
+    NEW.active_status := true;
     NEW.date_added := CURRENT_TIMESTAMP;
     NEW.date_updated := CURRENT_TIMESTAMP;
     RETURN NEW;
@@ -210,6 +233,8 @@ CREATE TABLE IF NOT EXISTS t_payment
     amount             DECIMAL(12, 2) NOT NULL DEFAULT 0.0,
     guid_source        TEXT           NOT NULL,
     guid_destination   TEXT           NOT NULL,
+    --TODO: bh 11/11/2020 - need to add this field
+    --active_status      BOOLEAN        NOT NULL DEFAULT TRUE,
     date_updated       TIMESTAMP      NOT NULL DEFAULT TO_TIMESTAMP(0),
     date_added         TIMESTAMP      NOT NULL DEFAULT TO_TIMESTAMP(0),
     CONSTRAINT payment_constraint UNIQUE (account_name_owner, transaction_date, amount),
@@ -221,6 +246,8 @@ CREATE OR REPLACE FUNCTION fn_insert_timestamp_payment() RETURNS TRIGGER AS
 $$
 DECLARE
 BEGIN
+    --TODO: bh 11/11/2020 - need to add
+    --NEW.active_status := true;
     NEW.date_added := CURRENT_TIMESTAMP;
     NEW.date_updated := CURRENT_TIMESTAMP;
     RETURN NEW;
@@ -250,7 +277,6 @@ CREATE TRIGGER tr_update_timestamp_payment
     FOR EACH ROW
 EXECUTE PROCEDURE fn_update_timestamp_payment();
 
-
 -------------
 -- Parm --
 -------------
@@ -259,6 +285,8 @@ CREATE TABLE IF NOT EXISTS t_parm
     parm_id      BIGSERIAL PRIMARY KEY,
     parm_name    TEXT UNIQUE NOT NULL,
     parm_value   TEXT        NOT NULL,
+    --TODO: bh 11/11/2020 - need to add this field
+    --active_status      BOOLEAN        NOT NULL DEFAULT TRUE,
     date_updated TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
     date_added   TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0)
 );
@@ -267,6 +295,8 @@ CREATE OR REPLACE FUNCTION fn_insert_timestamp_parm() RETURNS TRIGGER AS
 $$
 DECLARE
 BEGIN
+    --TODO: bh 11/11/2020 - need to add
+    --NEW.active_status := true;
     NEW.date_added := CURRENT_TIMESTAMP;
     NEW.date_updated := CURRENT_TIMESTAMP;
     RETURN NEW;
@@ -305,14 +335,19 @@ CREATE TABLE IF NOT EXISTS t_description
 (
     description_id BIGSERIAL PRIMARY KEY,
     description    TEXT UNIQUE NOT NULL,
-    date_updated        TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
-    date_added          TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0)
+    active_status  BOOLEAN     NOT NULL DEFAULT TRUE,
+    date_updated   TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
+    date_added     TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
+    CONSTRAINT t_description_description_lowercase_ck CHECK (description = lower(description))
 );
+
+--ALTER TABLE t_description ADD COLUMN active_status      BOOLEAN        NOT NULL DEFAULT TRUE;
 
 CREATE OR REPLACE FUNCTION fn_insert_timestamp_description() RETURNS TRIGGER AS
 $$
 DECLARE
 BEGIN
+    NEW.active_status := true;
     NEW.date_added := CURRENT_TIMESTAMP;
     NEW.date_updated := CURRENT_TIMESTAMP;
     RETURN NEW;
