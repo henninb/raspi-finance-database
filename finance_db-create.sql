@@ -142,16 +142,17 @@ CREATE TABLE IF NOT EXISTS t_receipt_image
 (
     receipt_image_id BIGSERIAL PRIMARY KEY,
     transaction_id   BIGINT    NOT NULL,
-    receipt_image    BYTEA     NOT NULL,
-    --jpg_image    BYTEA     NOT NULL,
+    --receipt_image    BYTEA     NOT NULL,
+    jpg_image        BYTEA     NOT NULL,                               -- ADD the not NULL constraint
     active_status    BOOLEAN   NOT NULL DEFAULT TRUE,
     date_updated     TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0),
     date_added       TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0),
-    CONSTRAINT ck_image_size CHECK(length(receipt_image) <= 1048576), -- 1024 kb file size limit
+    CONSTRAINT ck_jpg_size CHECK (length(jpg_image) <= 1048576), -- 1024 kb file size limit
     --646174613a696d6167652f706e673b626173653634 = data:image/png;base64
     --646174613a696d6167652f6a7065673b626173653634 = data:image/jpeg;base64
     --CONSTRAINT ck_image_type_png CHECK(left(encode(receipt_image,'hex'),42) = '646174613a696d6167652f706e673b626173653634'),
-    CONSTRAINT ck_image_type_jpg CHECK(left(encode(receipt_image,'hex'),44) = '646174613a696d6167652f6a7065673b626173653634'),
+    CONSTRAINT ck_image_type_jpg CHECK (left(encode(jpg_image, 'hex'), 44) =
+                                        '646174613a696d6167652f6a7065673b626173653634'),
     CONSTRAINT fk_transaction FOREIGN KEY (transaction_id) REFERENCES t_transaction (transaction_id) ON DELETE CASCADE
 );
 -- example
@@ -193,24 +194,6 @@ CREATE TRIGGER tr_update_receipt_image
     FOR EACH ROW
 EXECUTE PROCEDURE fn_update_receipt_image();
 
--- write some JPA logic such that this trigger is not required
-CREATE OR REPLACE FUNCTION fn_insert_receipt_image_after() RETURNS TRIGGER AS
-$$
-DECLARE
-BEGIN
-    UPDATE t_transaction SET receipt_image_id = NEW.receipt_image_id WHERE transaction_id = NEW.transaction_id;
-    RETURN NULL;
-END;
-$$ LANGUAGE PLPGSQL;
-
--- write some JPA logic such that this trigger is not required
-DROP TRIGGER IF EXISTS tr_insert_receipt_image_after ON t_receipt_image;
-CREATE TRIGGER tr_insert_receipt_image_after
-    AFTER INSERT
-    ON t_receipt_image
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_insert_receipt_image_after();
-
 -----------------
 -- Transaction --
 -----------------
@@ -246,6 +229,7 @@ CREATE TABLE IF NOT EXISTS t_transaction
     CONSTRAINT ck_reoccurring_type CHECK (reoccurring_type IN
                                           ('annually', 'bi-annually', 'every_two_weeks', 'monthly', 'undefined')),
     CONSTRAINT fk_account_id_account_name_owner FOREIGN KEY (account_id, account_name_owner, account_type) REFERENCES t_account (account_id, account_name_owner, account_type) ON DELETE CASCADE,
+    CONSTRAINT fk_receipt_image FOREIGN KEY (receipt_image_id) REFERENCES t_receipt_image (receipt_image_id) ON DELETE CASCADE,
     CONSTRAINT fk_category FOREIGN KEY (category) REFERENCES t_category (category) ON DELETE CASCADE
 );
 
@@ -451,4 +435,3 @@ COMMIT;
 
 -- check for locks
 -- SELECT pid, usename, pg_blocking_pids(pid) as blocked_by, query as blocked_query from pg_stat_activity where cardinality(pg_blocking_pids(pid)) > 0;
-
