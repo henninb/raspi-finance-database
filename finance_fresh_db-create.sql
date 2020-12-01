@@ -172,11 +172,12 @@ CREATE TABLE IF NOT EXISTS t_description
 );
 
 --ALTER TABLE t_receipt_image ADD CONSTRAINT fk_transaction FOREIGN KEY (transaction_id) REFERENCES t_transaction (transaction_id) ON DELETE CASCADE;
---ALTER TABLE t_description ADD CONSTRAINT fk_account_id_account_name_owner FOREIGN KEY (account_id, account_name_owner, account_type) REFERENCES t_account (account_id, account_name_owner, account_type) ON DELETE CASCADE;
---ALTER TABLE t_description ADD CONSTRAINT fk_receipt_image FOREIGN KEY (receipt_image_id) REFERENCES t_receipt_image (receipt_image_id) ON DELETE CASCADE;
---ALTER TABLE t_description ADD CONSTRAINT fk_category FOREIGN KEY (category) REFERENCES t_category (category) ON DELETE CASCADE;
+--ALTER TABLE t_transaction ADD CONSTRAINT fk_account_id_account_name_owner FOREIGN KEY (account_id, account_name_owner, account_type) REFERENCES t_account (account_id, account_name_owner, account_type) ON DELETE CASCADE;
+--ALTER TABLE t_transaction ADD CONSTRAINT fk_receipt_image FOREIGN KEY (receipt_image_id) REFERENCES t_receipt_image (receipt_image_id) ON DELETE CASCADE;
+--ALTER TABLE t_transaction ADD CONSTRAINT fk_category FOREIGN KEY (category) REFERENCES t_category (category) ON DELETE CASCADE;
 --ALTER TABLE t_payment ADD CONSTRAINT fk_guid_source FOREIGN KEY (guid_source) REFERENCES t_transaction (guid);
 --ALTER TABLE t_payment ADD CONSTRAINT fk_guid_destination FOREIGN KEY (guid_destination) REFERENCES t_transaction (guid);
+
 
 
 COMMIT;
