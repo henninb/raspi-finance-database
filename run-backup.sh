@@ -82,7 +82,7 @@ psql -h "${server}" -p "${port}" -U henninb finance_db -c "\copy (SELECT categor
 psql -h localhost -p 5432 -U henninb finance_fresh_db -c "\copy t_transaction_categories FROM 't_transaction_categories.csv' CSV HEADER; commit"
 
 echo postgresql database password
-pg_dump -h "${server}" -p "${port}" -U henninb -W -F t -d finance_fresh_db > "finance_fresh_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
+pg_dump -h localhost -p "${port}" -U henninb -W -F t -d finance_fresh_db > "finance_fresh_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
 
 echo scp "finance_db-${version}-${date}.tar pi:/home/pi"
 
