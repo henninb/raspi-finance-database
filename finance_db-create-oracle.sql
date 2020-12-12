@@ -11,7 +11,7 @@ CREATE TABLE  t_account
     account_name       VARCHAR(30), -- NULL for now
     account_owner      VARCHAR(30), -- NULL for now
     account_type       VARCHAR(20) NOT NULL,
-    active_status      CHAR(1)     NOT NULL DEFAULT 1,
+    active_status      CHAR(1)     NOT NULL,
     moniker            VARCHAR(10)        NOT NULL,
     totals             DECIMAL(12, 2),
     totals_balanced    DECIMAL(12, 2),
@@ -38,40 +38,6 @@ CREATE TABLE  t_category
     date_added    TIMESTAMP   NOT NULL,
     CONSTRAINT ck_lowercase_category CHECK (category = lower(category))
 );
-
-CREATE OR REPLACE FUNCTION fn_insert_category() RETURNS TRIGGER AS
-$$
-DECLARE
-BEGIN
-    NEW.active_status := true;
-    NEW.date_added := CURRENT_TIMESTAMP;
-    NEW.date_updated := CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-DROP TRIGGER IF EXISTS tr_insert_category ON t_category;
-CREATE TRIGGER tr_insert_category
-    BEFORE INSERT
-    ON t_category
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_insert_category();
-
-CREATE OR REPLACE FUNCTION fn_update_category() RETURNS TRIGGER AS
-$$
-DECLARE
-BEGIN
-    NEW.date_updated := CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-DROP TRIGGER IF EXISTS tr_update_category ON t_category;
-CREATE TRIGGER tr_update_category
-    BEFORE UPDATE
-    ON t_category
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_update_category();
 
 ---------------------------
 -- TransactionCategories --
@@ -108,40 +74,6 @@ CREATE TABLE  t_receipt_image
 -- ALTER TABLE t_receipt_image ADD COLUMN date_updated     TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0);
 -- ALTER TABLE t_receipt_image ADD CONSTRAINT ck_image_size CHECK(length(receipt_image) <= 1024);
 -- select receipt_image_id, transaction_id, length(receipt_image)/1048576.0, left(encode(receipt_image,'hex'),100) from t_receipt_image;
-
-CREATE OR REPLACE FUNCTION fn_insert_receipt_image() RETURNS TRIGGER AS
-$$
-DECLARE
-BEGIN
-    NEW.active_status := true;
-    NEW.date_added := CURRENT_TIMESTAMP;
-    NEW.date_updated := CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-DROP TRIGGER IF EXISTS tr_insert_receipt_image ON t_receipt_image;
-CREATE TRIGGER tr_insert_receipt_image
-    BEFORE INSERT
-    ON t_receipt_image
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_insert_receipt_image();
-
-CREATE OR REPLACE FUNCTION fn_update_receipt_image() RETURNS TRIGGER AS
-$$
-DECLARE
-BEGIN
-    NEW.date_updated := CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-DROP TRIGGER IF EXISTS tr_update_receipt_image ON t_receipt_image;
-CREATE TRIGGER tr_update_receipt_image
-    BEFORE UPDATE
-    ON t_receipt_image
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_update_receipt_image();
 
 -----------------
 -- Transaction --
@@ -187,41 +119,6 @@ CREATE TABLE  t_transaction
 -- ALTER TABLE t_transaction ADD CONSTRAINT ck_reoccurring_type CHECK (reoccurring_type IN ('annually', 'bi-annually', 'every_two_weeks', 'monthly', 'undefined'));
 -- ALTER TABLE t_transaction ADD COLUMN reoccurring_type TEXT NULL DEFAULT 'undefined';
 -- ALTER TABLE t_transaction DROP COLUMN receipt_image_id;
-
-CREATE OR REPLACE FUNCTION fn_insert_transaction() RETURNS TRIGGER AS
-$$
-DECLARE
-BEGIN
-    NEW.reoccurring_type = 'undefined';
-    NEW.active_status := true;
-    NEW.date_added := CURRENT_TIMESTAMP;
-    NEW.date_updated := CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-DROP TRIGGER IF EXISTS tr_insert_transaction ON t_transaction;
-CREATE TRIGGER tr_insert_transaction
-    BEFORE INSERT
-    ON t_transaction
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_insert_transaction();
-
-CREATE OR REPLACE FUNCTION fn_update_transaction() RETURNS TRIGGER AS
-$$
-DECLARE
-BEGIN
-    NEW.date_updated := CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-DROP TRIGGER IF EXISTS tr_update_transaction ON t_transaction;
-CREATE TRIGGER tr_update_transaction
-    BEFORE UPDATE
-    ON t_transaction
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_update_transaction();
 
 -------------
 -- Payment --
@@ -295,40 +192,6 @@ CREATE TABLE  t_parm
 -- ALTER TABLE t_parm ADD COLUMN active_status BOOLEAN NOT NULL DEFAULT TRUE;
 -- insert into t_parm(parm_name, parm_value) VALUES('payment_account', '');
 
-CREATE OR REPLACE FUNCTION fn_insert_parm() RETURNS TRIGGER AS
-$$
-DECLARE
-BEGIN
-    NEW.active_status := true;
-    NEW.date_added := CURRENT_TIMESTAMP;
-    NEW.date_updated := CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-DROP TRIGGER IF EXISTS tr_insert_parm ON t_parm;
-CREATE TRIGGER tr_insert_parm
-    BEFORE INSERT
-    ON t_parm
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_insert_parm();
-
-CREATE OR REPLACE FUNCTION fn_update_parm() RETURNS TRIGGER AS
-$$
-DECLARE
-BEGIN
-    NEW.date_updated := CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-DROP TRIGGER IF EXISTS tr_update_parm ON t_parm;
-CREATE TRIGGER tr_update_parm
-    BEFORE UPDATE
-    ON t_parm
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_update_parm();
-
 -----------------
 -- description --
 -----------------
@@ -343,40 +206,6 @@ CREATE TABLE  t_description
 );
 
 --ALTER TABLE t_description ADD COLUMN active_status      BOOLEAN        NOT NULL DEFAULT TRUE;
-
-CREATE OR REPLACE FUNCTION fn_insert_description() RETURNS TRIGGER AS
-$$
-DECLARE
-BEGIN
-    NEW.active_status := true;
-    NEW.date_added := CURRENT_TIMESTAMP;
-    NEW.date_updated := CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-DROP TRIGGER IF EXISTS tr_insert_description ON t_description;
-CREATE TRIGGER tr_insert_description
-    BEFORE INSERT
-    ON t_description
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_insert_description();
-
-CREATE OR REPLACE FUNCTION fn_update_description() RETURNS TRIGGER AS
-$$
-DECLARE
-BEGIN
-    NEW.date_updated := CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-DROP TRIGGER IF EXISTS tr_update_description ON t_description;
-CREATE TRIGGER tr_update_description
-    BEFORE UPDATE
-    ON t_description
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_update_description();
 
 COMMIT;
 
