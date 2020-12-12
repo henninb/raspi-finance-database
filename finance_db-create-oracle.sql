@@ -24,6 +24,8 @@ CREATE TABLE  t_account
     CONSTRAINT ck_account_type_lowercase CHECK (account_type = lower(account_type))
 );
 
+-- insert into t_account(account_name_owner, account_type, active_status, moniker, date_updated, date_added) VALUES('chase_brian', 'credit', 1, '0000', sysdate, sysdate);
+
 CREATE OR REPLACE FUNCTION fn_update_account() RETURNS TRIGGER AS
 $$
 DECLARE
@@ -64,9 +66,9 @@ CREATE TABLE  t_category
 (
     category_id   BIGSERIAL PRIMARY KEY,
     category      TEXT UNIQUE NOT NULL,
-    active_status BOOLEAN     NOT NULL DEFAULT TRUE,
-    date_updated  TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
-    date_added    TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
+    active_status CHAR(1)     NOT NULL,
+    date_updated  TIMESTAMP   NOT NULL,
+    date_added    TIMESTAMP   NOT NULL,
     CONSTRAINT ck_lowercase_category CHECK (category = lower(category))
 );
 
