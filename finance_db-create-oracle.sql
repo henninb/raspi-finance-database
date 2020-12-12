@@ -11,7 +11,7 @@ CREATE TABLE  t_account
     account_name       VARCHAR(30), -- NULL for now
     account_owner      VARCHAR(30), -- NULL for now
     account_type       VARCHAR(20) NOT NULL,
-    active_status      CHAR(1)     NOT NULL,
+    active_status      CHAR(1)     NOT NULL DEFAULT 1,
     moniker            VARCHAR(10)        NOT NULL,
     totals             DECIMAL(12, 2),
     totals_balanced    DECIMAL(12, 2),
@@ -25,39 +25,6 @@ CREATE TABLE  t_account
 );
 
 -- insert into t_account(account_name_owner, account_type, active_status, moniker, date_updated, date_added) VALUES('chase_brian', 'credit', 1, '0000', sysdate, sysdate);
-
-CREATE OR REPLACE FUNCTION fn_update_account() RETURNS TRIGGER AS
-$$
-DECLARE
-BEGIN
-    NEW.date_updated := CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-DROP TRIGGER IF EXISTS tr_update_account ON t_account;
-CREATE TRIGGER tr_update_account
-    BEFORE UPDATE
-    ON t_account
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_update_account();
-
-CREATE OR REPLACE FUNCTION fn_insert_account() RETURNS TRIGGER AS
-$$
-BEGIN
-    NEW.active_status := true;
-    NEW.date_updated := CURRENT_TIMESTAMP;
-    NEW.date_added := CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-DROP TRIGGER IF EXISTS tr_insert_account ON t_account;
-CREATE TRIGGER tr_insert_account
-    BEFORE INSERT
-    ON t_account
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_insert_account();
 
 --------------
 -- Category --
