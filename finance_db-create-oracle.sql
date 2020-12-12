@@ -11,7 +11,7 @@ CREATE TABLE  t_account
     account_name       VARCHAR(30), -- NULL for now
     account_owner      VARCHAR(30), -- NULL for now
     account_type       VARCHAR(20)        NOT NULL,
-    active_status      BOOLEAN     NOT NULL,
+    active_status      CHAR(1)     NOT NULL,
     moniker            VARCHAR(10)        NOT NULL,
     totals             DECIMAL(12, 2),
     totals_balanced    DECIMAL(12, 2),
