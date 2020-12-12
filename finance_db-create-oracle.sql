@@ -10,9 +10,9 @@ CREATE TABLE  t_account
     account_name_owner VARCHAR(30) UNIQUE NOT NULL,
     account_name       VARCHAR(30), -- NULL for now
     account_owner      VARCHAR(30), -- NULL for now
-    account_type       VARCHAR(20)        NOT NULL,
-    active_status      CHAR(1)     NOT NULL,
-    moniker            VARCHAR(10)        NOT NULL,
+    account_type       VARCHAR(20)        NOT NULL DEFAULT 'unknown',
+    active_status      CHAR(1)     NOT NULL DEFAULT 1,
+    moniker            VARCHAR(10)        NOT NULL DEFAULT '0000',
     totals             DECIMAL(12, 2),
     totals_balanced    DECIMAL(12, 2),
     date_closed        TIMESTAMP,
