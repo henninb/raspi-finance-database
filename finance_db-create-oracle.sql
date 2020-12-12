@@ -8,16 +8,16 @@ CREATE TABLE  t_account
 (
     account_id         NUMBER GENERATED always AS IDENTITY PRIMARY KEY,
     account_name_owner VARCHAR(30) UNIQUE NOT NULL,
-    account_name       TEXT, -- NULL for now
-    account_owner      TEXT, -- NULL for now
+    account_name       VARCHAR(30), -- NULL for now
+    account_owner      VARCHAR(30), -- NULL for now
     account_type       VARCHAR(20)        NOT NULL,
-    active_status      BOOLEAN     NOT NULL DEFAULT TRUE,
-    moniker            VARCHAR(10)        NOT NULL DEFAULT '0000',
-    totals             DECIMAL(12, 2)       DEFAULT 0.0,
-    totals_balanced    DECIMAL(12, 2)       DEFAULT 0.0,
-    date_closed        TIMESTAMP            DEFAULT TO_TIMESTAMP(0),
-    date_updated       TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
-    date_added         TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
+    active_status      BOOLEAN     NOT NULL,
+    moniker            VARCHAR(10)        NOT NULL,
+    totals             DECIMAL(12, 2),
+    totals_balanced    DECIMAL(12, 2),
+    date_closed        TIMESTAMP,
+    date_updated       TIMESTAMP   NOT NULL,
+    date_added         TIMESTAMP   NOT NULL,
     CONSTRAINT unique_account_name_owner_account_id UNIQUE (account_id, account_name_owner, account_type),
     CONSTRAINT unique_account_name_owner_account_type UNIQUE (account_name_owner, account_type),
     CONSTRAINT ck_account_type CHECK (account_type IN ('debit', 'credit', 'undefined')),
