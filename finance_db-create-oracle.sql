@@ -7,12 +7,12 @@ CREATE USER henninb IDENTIFIED BY "monday1";
 CREATE TABLE  t_account
 (
     account_id         NUMBER GENERATED always AS IDENTITY PRIMARY KEY,
-    account_name_owner VARCHAR(100) UNIQUE NOT NULL,
+    account_name_owner VARCHAR(30) UNIQUE NOT NULL,
     account_name       TEXT, -- NULL for now
     account_owner      TEXT, -- NULL for now
-    account_type       TEXT        NOT NULL DEFAULT 'unknown',
+    account_type       VARCHAR(20)        NOT NULL,
     active_status      BOOLEAN     NOT NULL DEFAULT TRUE,
-    moniker            TEXT        NOT NULL DEFAULT '0000',
+    moniker            VARCHAR(10)        NOT NULL DEFAULT '0000',
     totals             DECIMAL(12, 2)       DEFAULT 0.0,
     totals_balanced    DECIMAL(12, 2)       DEFAULT 0.0,
     date_closed        TIMESTAMP            DEFAULT TO_TIMESTAMP(0),
