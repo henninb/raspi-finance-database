@@ -64,8 +64,8 @@ EXECUTE PROCEDURE fn_insert_account();
 --------------
 CREATE TABLE  t_category
 (
-    category_id   BIGSERIAL PRIMARY KEY,
-    category      TEXT UNIQUE NOT NULL,
+    category_id   NUMBER GENERATED always AS IDENTITY PRIMARY KEY,
+    category      VARCHAR(30) UNIQUE NOT NULL,
     active_status CHAR(1)     NOT NULL,
     date_updated  TIMESTAMP   NOT NULL,
     date_added    TIMESTAMP   NOT NULL,
