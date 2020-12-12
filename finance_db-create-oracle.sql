@@ -66,7 +66,7 @@ CREATE TABLE  t_category
 (
     category_id   NUMBER GENERATED always AS IDENTITY PRIMARY KEY,
     category      VARCHAR(30) UNIQUE NOT NULL,
-    active_status CHAR(1)     NOT NULL,
+    active_status CHAR(1)     NOT NULL DEFAULT 1,
     date_updated  TIMESTAMP   NOT NULL,
     date_added    TIMESTAMP   NOT NULL,
     CONSTRAINT ck_lowercase_category CHECK (category = lower(category))
