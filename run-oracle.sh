@@ -29,6 +29,6 @@ read -r x
 echo "$x" > /dev/null
 
 echo oracle database password
-echo @example.sql | sqlplus -S henninb/monday1@192.168.100.208/ORCLCDB.localdomain
+echo @finance_db-create-oracle.sql | sqlplus -S henninb/monday1@192.168.100.208/ORCLCDB.localdomain
 
 exit 0
