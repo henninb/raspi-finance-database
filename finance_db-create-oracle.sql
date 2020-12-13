@@ -78,8 +78,6 @@ CREATE TABLE  t_receipt_image
 -----------------
 -- Transaction --
 -----------------
---CREATE TYPE transaction_state_enum AS ENUM ('outstanding','future','cleared', 'undefined');
---CREATE TYPE account_type_enum AS ENUM ('credit','debit', 'undefined');
 CREATE TABLE  t_transaction
 (
     transaction_id     BIGSERIAL PRIMARY KEY,

@@ -32,8 +32,8 @@ CREATE TABLE IF NOT EXISTS t_account
     account_type       TEXT        NOT NULL DEFAULT 'unknown',
     active_status      BOOLEAN     NOT NULL DEFAULT TRUE,
     moniker            TEXT        NOT NULL DEFAULT '0000',
-    totals             DECIMAL(12, 2)       DEFAULT 0.0,
-    totals_balanced    DECIMAL(12, 2)       DEFAULT 0.0,
+    totals             NUMERIC(8, 2)        DEFAULT 0.00,
+    totals_balanced    NUMERIC(8, 2)        DEFAULT 0.00,
     date_closed        TIMESTAMP            DEFAULT TO_TIMESTAMP(0),
     date_updated       TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
     date_added         TIMESTAMP   NOT NULL DEFAULT TO_TIMESTAMP(0),
@@ -151,8 +151,7 @@ CREATE TABLE IF NOT EXISTS t_receipt_image
     --646174613a696d6167652f6a7065673b626173653634 = data:image/jpeg;base64
     --CONSTRAINT ck_image_type_png CHECK(left(encode(receipt_image,'hex'),42) = '646174613a696d6167652f706e673b626173653634'),
     CONSTRAINT ck_image_type_jpg CHECK (left(encode(jpg_image, 'hex'), 44) =
-                                        '646174613a696d6167652f6a7065673b626173653634'),
-    CONSTRAINT fk_transaction FOREIGN KEY (transaction_id) REFERENCES t_transaction (transaction_id) ON DELETE CASCADE
+                                        '646174613a696d6167652f6a7065673b626173653634')
 );
 -- example
 -- ALTER TABLE t_receipt_image ADD COLUMN date_updated     TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0);
@@ -201,22 +200,22 @@ EXECUTE PROCEDURE fn_update_receipt_image();
 CREATE TABLE IF NOT EXISTS t_transaction
 (
     transaction_id     BIGSERIAL PRIMARY KEY,
-    account_id         BIGINT         NOT NULL,
-    account_type       TEXT           NOT NULL DEFAULT 'undefined',
-    account_name_owner TEXT           NOT NULL,
-    guid               TEXT           NOT NULL UNIQUE,
-    transaction_date   DATE           NOT NULL,
-    description        TEXT           NOT NULL,
-    category           TEXT           NOT NULL DEFAULT '',
-    amount             DECIMAL(12, 2) NOT NULL DEFAULT 0.0,
-    transaction_state  TEXT           NOT NULL DEFAULT 'undefined',
-    reoccurring        BOOLEAN        NOT NULL DEFAULT FALSE,
-    reoccurring_type   TEXT           NULL     DEFAULT 'undefined',
-    active_status      BOOLEAN        NOT NULL DEFAULT TRUE,
-    notes              TEXT           NOT NULL DEFAULT '',
-    receipt_image_id   BIGINT         NULL,
-    date_updated       TIMESTAMP      NOT NULL DEFAULT TO_TIMESTAMP(0),
-    date_added         TIMESTAMP      NOT NULL DEFAULT TO_TIMESTAMP(0),
+    account_id         BIGINT        NOT NULL,
+    account_type       TEXT          NOT NULL DEFAULT 'undefined',
+    account_name_owner TEXT          NOT NULL,
+    guid               TEXT          NOT NULL UNIQUE,
+    transaction_date   DATE          NOT NULL,
+    description        TEXT          NOT NULL,
+    category           TEXT          NOT NULL DEFAULT '',
+    amount             NUMERIC(8, 2) NOT NULL DEFAULT 0.00,
+    transaction_state  TEXT          NOT NULL DEFAULT 'undefined',
+    reoccurring        BOOLEAN       NOT NULL DEFAULT FALSE,
+    reoccurring_type   TEXT          NULL     DEFAULT 'undefined',
+    active_status      BOOLEAN       NOT NULL DEFAULT TRUE,
+    notes              TEXT          NOT NULL DEFAULT '',
+    receipt_image_id   BIGINT        NULL,
+    date_updated       TIMESTAMP     NOT NULL DEFAULT TO_TIMESTAMP(0),
+    date_added         TIMESTAMP     NOT NULL DEFAULT TO_TIMESTAMP(0),
     CONSTRAINT transaction_constraint UNIQUE (account_name_owner, transaction_date, description, category, amount,
                                               notes),
     CONSTRAINT t_transaction_description_lowercase_ck CHECK (description = lower(description)),
@@ -231,6 +230,9 @@ CREATE TABLE IF NOT EXISTS t_transaction
     CONSTRAINT fk_receipt_image FOREIGN KEY (receipt_image_id) REFERENCES t_receipt_image (receipt_image_id) ON DELETE CASCADE,
     CONSTRAINT fk_category FOREIGN KEY (category) REFERENCES t_category (category) ON DELETE CASCADE
 );
+
+-- Required to happen after the t_transaction table is created
+ALTER TABLE t_receipt_image ADD CONSTRAINT fk_transaction FOREIGN KEY (transaction_id) REFERENCES t_transaction (transaction_id) ON DELETE CASCADE;
 
 -- example
 -- ALTER TABLE t_transaction DROP CONSTRAINT IF EXISTS fk_receipt_image;
@@ -279,15 +281,15 @@ EXECUTE PROCEDURE fn_update_transaction();
 CREATE TABLE IF NOT EXISTS t_payment
 (
     payment_id         BIGSERIAL PRIMARY KEY,
-    account_name_owner TEXT           NOT NULL,
-    transaction_date   DATE           NOT NULL,
-    amount             DECIMAL(12, 2) NOT NULL DEFAULT 0.0,
-    guid_source        TEXT           NOT NULL,
-    guid_destination   TEXT           NOT NULL,
+    account_name_owner TEXT          NOT NULL,
+    transaction_date   DATE          NOT NULL,
+    amount             NUMERIC(8, 2) NOT NULL DEFAULT 0.00,
+    guid_source        TEXT          NOT NULL,
+    guid_destination   TEXT          NOT NULL,
     --TODO: bh 11/11/2020 - need to add this field
     --active_status      BOOLEAN        NOT NULL DEFAULT TRUE,
-    date_updated       TIMESTAMP      NOT NULL DEFAULT TO_TIMESTAMP(0),
-    date_added         TIMESTAMP      NOT NULL DEFAULT TO_TIMESTAMP(0),
+    date_updated       TIMESTAMP     NOT NULL DEFAULT TO_TIMESTAMP(0),
+    date_added         TIMESTAMP     NOT NULL DEFAULT TO_TIMESTAMP(0),
     CONSTRAINT payment_constraint UNIQUE (account_name_owner, transaction_date, amount),
     CONSTRAINT fk_guid_source FOREIGN KEY (guid_source) REFERENCES t_transaction (guid),
     CONSTRAINT fk_guid_destination FOREIGN KEY (guid_destination) REFERENCES t_transaction (guid)
