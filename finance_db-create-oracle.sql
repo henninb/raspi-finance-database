@@ -119,6 +119,55 @@ CREATE TABLE  t_receipt_image
     );
 
 
+-------------
+-- Payment --
+-------------
+drop table t_payment cascade constraints;
+CREATE TABLE t_payment
+(
+    payment_id         NUMBER GENERATED always AS IDENTITY PRIMARY KEY,
+    account_name_owner VARCHAR(25)          NOT NULL,
+    transaction_date   DATE          NOT NULL,
+    amount             NUMERIC(8, 2) DEFAULT 0.00 NOT NULL,
+    guid_source        VARCHAR(40)          NOT NULL,
+    guid_destination   VARCHAR(40)          NOT NULL,
+    --TODO: bh 11/11/2020 - need to add this field
+    --active_status      BOOLEAN        NOT NULL DEFAULT TRUE,
+    date_updated       TIMESTAMP     NULL,
+    date_added         TIMESTAMP     NULL,
+    CONSTRAINT payment_constraint UNIQUE (account_name_owner, transaction_date, amount),
+    CONSTRAINT fk_guid_source FOREIGN KEY (guid_source) REFERENCES t_transaction (guid),
+    CONSTRAINT fk_guid_destination FOREIGN KEY (guid_destination) REFERENCES t_transaction (guid)
+);
+
+-------------
+-- Parm --
+-------------
+drop table t_parm cascade constraints;
+CREATE TABLE t_parm
+(
+    parm_id         NUMBER GENERATED always AS IDENTITY PRIMARY KEY,
+    parm_name     VARCHAR(30) UNIQUE NOT NULL,
+    parm_value    VARCHAR(30)        NOT NULL,
+    active_status CHAR(1)     DEFAULT 1 NOT NULL,
+    date_updated  TIMESTAMP   NULL,
+    date_added    TIMESTAMP   NULL
+);
+
+-----------------
+-- description --
+-----------------
+drop table t_description cascade constraints;
+CREATE TABLE t_description
+(
+    description_id         NUMBER GENERATED always AS IDENTITY PRIMARY KEY,
+    description    VARCHAR(50) UNIQUE NOT NULL,
+    active_status CHAR(1)     DEFAULT 1 NOT NULL,
+    date_updated  TIMESTAMP   NULL,
+    date_added    TIMESTAMP   NULL
+    -- CONSTRAINT t_description_description_lowercase_ck CHECK (description = lower(description))
+);
+
 --WHENEVER SQLERROR CONTINUE NONE
 --DROP TABLE TABLE_NAME;
 
