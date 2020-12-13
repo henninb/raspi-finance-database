@@ -5,7 +5,7 @@ select sysdate from dual;
 --------------
 -- Account --
 --------------
-drop table t_account;
+drop table t_account cascade constraints;
 CREATE TABLE  t_account
 (
     account_id         NUMBER GENERATED always AS IDENTITY PRIMARY KEY,
@@ -18,15 +18,15 @@ CREATE TABLE  t_account
     totals             DECIMAL(8, 2) DEFAULT 0.0,
     totals_balanced    DECIMAL(8, 2) DEFAULT 0.0,
     date_closed        TIMESTAMP,
-    date_updated       TIMESTAMP   NOT NULL,
-    date_added         TIMESTAMP   NOT NULL,
+    date_updated       TIMESTAMP   NULL,
+    date_added         TIMESTAMP   NULL,
     CONSTRAINT unique_account_name_owner_account_id UNIQUE (account_id, account_name_owner, account_type),
     CONSTRAINT unique_account_name_owner_account_type UNIQUE (account_name_owner, account_type),
     CONSTRAINT ck_account_type CHECK (account_type IN ('debit', 'credit', 'undefined')),
     CONSTRAINT ck_account_type_lowercase CHECK (account_type = lower(account_type))
 );
 
-describe t_account;
+-- describe t_account;
 
 --------------
 -- Category --
@@ -37,40 +37,39 @@ CREATE TABLE  t_category
     category_id   NUMBER GENERATED always AS IDENTITY PRIMARY KEY,
     category      VARCHAR(30) UNIQUE NOT NULL,
     active_status CHAR(1)     DEFAULT 1 NOT NULL,
-    date_updated  TIMESTAMP   NOT NULL,
-    date_added    TIMESTAMP   NOT NULL,
+    date_updated  TIMESTAMP   NULL,
+    date_added    TIMESTAMP   NULL,
     CONSTRAINT ck_lowercase_category CHECK (category = lower(category))
 );
 
-describe t_category;
+-- describe t_category;
 
 ---------------------------
 -- TransactionCategories --
 ---------------------------
-drop table t_transaction_categories;
-
+drop table t_transaction_categories cascade constraints;
 CREATE TABLE  t_transaction_categories
 (
     category_id    NUMBER    NOT NULL,
     transaction_id NUMBER    NOT NULL,
-    date_updated   TIMESTAMP NOT NULL,
-    date_added     TIMESTAMP NOT NULL,
+    date_updated   TIMESTAMP NULL,
+    date_added     TIMESTAMP NULL,
     PRIMARY KEY (category_id, transaction_id)
 );
-describe t_transaction_categories;
+-- describe t_transaction_categories;
 
 -------------------
 -- ReceiptImage  --
 -------------------
-drop table t_receipt_image;
+drop table t_receipt_image cascade constraints;
 CREATE TABLE  t_receipt_image
 (
     receipt_image_id NUMBER GENERATED always AS IDENTITY PRIMARY KEY,
     transaction_id   NUMBER    NOT NULL,
     jpg_image        BLOB      NOT NULL,                         -- ADD the not NULL constraint
     active_status    CHAR(1)   DEFAULT 1 NOT NULL,
-    date_updated     TIMESTAMP NOT NULL,
-    date_added       TIMESTAMP NOT NULL,
+    date_updated     TIMESTAMP NULL,
+    date_added       TIMESTAMP NULL,
     CONSTRAINT ck_jpg_size CHECK (length(jpg_image) <= 1048576) -- 1024 kb file size limit
     --646174613a696d6167652f706e673b626173653634 = data:image/png;base64
     --646174613a696d6167652f6a7065673b626173653634 = data:image/jpeg;base64
@@ -84,7 +83,7 @@ CREATE TABLE  t_receipt_image
 -----------------
 -- Transaction --
 -----------------
-  drop table t_transaction;
+  drop table t_transaction cascade constraints;
   CREATE TABLE  t_transaction
   (
       transaction_id     NUMBER GENERATED always AS IDENTITY PRIMARY KEY,
@@ -102,8 +101,8 @@ CREATE TABLE  t_receipt_image
       active_status      CHAR(1) DEFAULT 1 NOT NULL,
       notes              VARCHAR(100) DEFAULT '' NOT NULL,
       receipt_image_id   NUMBER         NULL,
-      date_updated       TIMESTAMP      NOT NULL,
-      date_added         TIMESTAMP      NOT NULL,
+      date_updated       TIMESTAMP      NULL,
+      date_added         TIMESTAMP      NULL,
           CONSTRAINT transaction_constraint UNIQUE (account_name_owner, transaction_date, description, category, amount,
                                               notes),
     CONSTRAINT t_transaction_description_lowercase_ck CHECK (description = lower(description)),
