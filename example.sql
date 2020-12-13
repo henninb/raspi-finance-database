@@ -31,7 +31,7 @@ describe t_account;
 --------------
 -- Category --
 --------------
-drop table t_category;
+drop table t_category cascade constraints;
 CREATE TABLE  t_category
 (
     category_id   NUMBER GENERATED always AS IDENTITY PRIMARY KEY,
