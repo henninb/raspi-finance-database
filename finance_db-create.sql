@@ -275,6 +275,23 @@ CREATE TRIGGER tr_update_transaction
     FOR EACH ROW
 EXECUTE PROCEDURE fn_update_transaction();
 
+CREATE OR REPLACE FUNCTION fn_create_reoccurring_transaction() RETURNS TRIGGER AS
+$$
+DECLARE
+BEGIN
+    INSERT INTO t_transaction(account_id, account_type, account_name_owner, guid, transaction_date, description, category, amount, transaction_state, reoccurring, reoccurring_type, active_status, notes, receipt_image_id, date_updated, date_added)
+    VALUES(OLD.account_id, OLD.account_type, OLD.account_name_owner, uuid_generate_v4(), OLD.transaction_date + interval '1 year', OLD.description, OLD.category, OLD.amount, 'future', true, OLD.reoccurring_type, true, '', null, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+END;
+$$ LANGUAGE PLPGSQL;
+
+DROP TRIGGER IF EXISTS tr_create_reoccurring_transaction ON t_transaction;
+CREATE TRIGGER tr_create_reoccurring_transaction
+    AFTER UPDATE
+    ON t_transaction
+    FOR EACH ROW
+    WHEN (NEW.reoccurring = true AND NEW.reoccurring_type != 'unknown' AND NEW.transaction_state = 'cleared')
+EXECUTE PROCEDURE fn_create_reoccurring_transaction();
+
 -------------
 -- Payment --
 -------------
