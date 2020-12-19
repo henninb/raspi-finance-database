@@ -47,9 +47,33 @@ REVOKE CONNECT ON DATABASE finance_test_db FROM public;
 
 EOF
 
+cat > /tmp/sql-fresh <<EOF
+--set client_min_messages = warning;
+--\d+ (shows sequence)
+--epoch
+--select extract(epoch from date_added) from t_transaction;
+--select date_part('epoch', date_added) from t_transaction;
+--SELECT EXTRACT(EPOCH FROM TIMESTAMP '2016-10-25T00:14:30.000');
+--extract(epoch from date_trunc('month', current_timestamp)
+--REVOKE CONNECT ON DATABASE finance_test_db FROM PUBLIC, henninb;
+
+--TO_TIMESTAMP('1538438975')
+
+DROP DATABASE IF EXISTS finance_fresh_db;
+CREATE DATABASE finance_fresh_db;
+GRANT ALL PRIVILEGES ON DATABASE finance_fresh_db TO henninb;
+
+REVOKE CONNECT ON DATABASE finance_fresh_db FROM public;
+
+\connect finance_fresh_db;
+
+EOF
+
 cat /tmp/sql-prod "$HOME/projects/raspi-finance-endpoint/src/main/resources/db/migration/V02__create-all-database-objects.sql" > finance_db-create.sql
 
 cat /tmp/sql-test "$HOME/projects/raspi-finance-endpoint/src/main/resources/db/migration/V02__create-all-database-objects.sql" > finance_test_db-create.sql
+
+cat /tmp/sql-fresh "$HOME/projects/raspi-finance-endpoint/src/main/resources/db/migration/V02__create-all-database-objects.sql" > finance_fresh_db-create.sql
 
 exit 0
 

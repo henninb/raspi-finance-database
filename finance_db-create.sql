@@ -234,8 +234,9 @@ ALTER TABLE t_receipt_image DROP CONSTRAINT IF EXISTS fk_transaction;
 ALTER TABLE t_receipt_image ADD CONSTRAINT fk_transaction FOREIGN KEY (transaction_id) REFERENCES t_transaction (transaction_id) ON DELETE CASCADE;
 
 -- example
+-- ALTER TABLE t_transaction DROP CONSTRAINT IF EXISTS ck_reoccurring_type;
 -- ALTER TABLE t_transaction DROP CONSTRAINT IF EXISTS fk_receipt_image;
--- ALTER TABLE t_transaction ADD CONSTRAINT ck_reoccurring_type CHECK (reoccurring_type IN ('annually', 'bi-annually', 'fortnightly', 'monthly', 'undefined'));
+-- ALTER TABLE t_transaction ADD CONSTRAINT ck_reoccurring_type CHECK (reoccurring_type IN ('annually', 'bi-annually', 'fortnightly', 'monthly', 'quarterly', 'undefined'));
 -- ALTER TABLE t_transaction ADD COLUMN reoccurring_type TEXT NULL DEFAULT 'undefined';
 -- ALTER TABLE t_transaction DROP COLUMN receipt_image_id;
 
