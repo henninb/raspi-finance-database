@@ -98,3 +98,8 @@ SELECT 'chase_kari', (transaction_date + interval '1 year'), description, abs(am
 SELECT 'chase_kari', (transaction_date + interval '1 year'), description, abs(amount) from t_transaction WHERE description LIKE 'century link' and extract(year from transaction_date) = 2020;
 
 SELECT 'usbankcash_kari', (transaction_date + interval '1 year'), description, abs(amount) from t_transaction WHERE description LIKE 't-mobile.com' and extract(year from transaction_date) = 2020;
+
+-- sequenence
+SELECT setval('t_receipt_image_receipt_image_id_seq', max(receipt_image_id)) FROM t_receipt_image;
+SELECT setval('t_receipt_image_receipt_image_id_seq', (SELECT MAX(receipt_image_id) FROM t_receipt_image)+1);
+SELECT setval('t_transaction_transaction_id_seq', (SELECT MAX(transaction_id) FROM t_transaction)+1);
