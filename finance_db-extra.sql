@@ -100,6 +100,17 @@ SELECT 'chase_kari', (transaction_date + interval '1 year'), description, abs(am
 SELECT 'usbankcash_kari', (transaction_date + interval '1 year'), description, abs(amount) from t_transaction WHERE description LIKE 't-mobile.com' and extract(year from transaction_date) = 2020;
 
 -- sequenence
-SELECT setval('t_receipt_image_receipt_image_id_seq', max(receipt_image_id)) FROM t_receipt_image;
+--SELECT setval('t_receipt_image_receipt_image_id_seq', max(receipt_image_id)) FROM t_receipt_image;
+
 SELECT setval('t_receipt_image_receipt_image_id_seq', (SELECT MAX(receipt_image_id) FROM t_receipt_image)+1);
 SELECT setval('t_transaction_transaction_id_seq', (SELECT MAX(transaction_id) FROM t_transaction)+1);
+SELECT setval('t_payment_payment_id_seq', (SELECT MAX(payment_id) FROM t_payment)+1);
+SELECT setval('t_account_account_id_seq', (SELECT MAX(account_id) FROM t_account)+1);
+SELECT setval('t_category_category_id_seq', (SELECT MAX(category_id) FROM t_category)+1);
+SELECT setval('t_description_description_id_seq', (SELECT MAX(description_id) FROM t_description)+1);
+SELECT setval('t_parm_parm_id_seq', (SELECT MAX(parm_id) FROM t_parm)+1);
+
+select * from t_payment where guid_source not in (select guid from t_transaction);
+select * from t_payment where guid_destination not in (select guid from t_transaction);
+
+select receipt_image_id from t_receipt_image where receipt_image_id not in (select receipt_image_id from t_transaction);
