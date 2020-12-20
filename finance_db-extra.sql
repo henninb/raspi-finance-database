@@ -114,3 +114,7 @@ select * from t_payment where guid_source not in (select guid from t_transaction
 select * from t_payment where guid_destination not in (select guid from t_transaction);
 
 select receipt_image_id from t_receipt_image where receipt_image_id not in (select receipt_image_id from t_transaction);
+
+SET timezone = 'America/Chicago';
+COMMIT;
+show timezone;
