@@ -118,3 +118,5 @@ select receipt_image_id from t_receipt_image where receipt_image_id not in (sele
 SET timezone = 'America/Chicago';
 COMMIT;
 show timezone;
+
+INSERT INTO t_parm(parm_name, parm_value, active_status) VALUES('payment_account', 'bank_brian', true);
