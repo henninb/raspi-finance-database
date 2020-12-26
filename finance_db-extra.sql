@@ -120,3 +120,12 @@ COMMIT;
 show timezone;
 
 INSERT INTO t_parm(parm_name, parm_value, active_status) VALUES('payment_account', 'bank_brian', true);
+
+
+-- clone a transacation
+INSERT INTO t_transaction(
+  account_id, account_type, account_name_owner, guid, transaction_date, description, category, amount, transaction_state, reoccurring, reoccurring_type, active_status, notes, receipt_image_id,        date_updated, date_added
+)
+SELECT
+account_id, account_type, account_name_owner, uuid_generate_v4(), transaction_date + interval '30' day , description, category, amount, transaction_state, reoccurring, 'monthly', active_status, notes, receipt_image_id, now(), now()
+FROM t_transaction where guid='d19885c4-e85e-49e6-a081-ffb54e97ef79';
