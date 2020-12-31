@@ -129,3 +129,11 @@ INSERT INTO t_transaction(
 SELECT
 account_id, account_type, account_name_owner, uuid_generate_v4(), transaction_date + interval '30' day , description, category, amount, transaction_state, reoccurring, 'monthly', active_status, notes, receipt_image_id, now(), now()
 FROM t_transaction where guid='d19885c4-e85e-49e6-a081-ffb54e97ef79';
+
+
+update t_transaction set description = replace(description, ' - *reoccur*', '');
+
+select description, count(description) as cnt from t_transaction where description in (select description from t_description where active_status=true) group by description HAVING COUNT(description) < 11 order by cnt desc;
+
+update t_description set active_status=false where description in (
+select description from t_transaction where description in (select description from t_description where active_status=true) group by description HAVING COUNT(description) < 11);
