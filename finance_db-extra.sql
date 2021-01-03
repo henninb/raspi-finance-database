@@ -148,3 +148,9 @@ SELECT description, count(description) as cnt from t_transaction where descripti
 UPDATE t_description set active_status=false where description in (
 select description from t_transaction where description in (select description from t_description where active_status=true) group by description HAVING COUNT(description) < 11);
 COMMIT;
+
+-- find all reoccurring transactions from 2020
+SELECT description, (transaction_date + interval '1 year'), description, abs(amount) from t_transaction WHERE reoccurring = true and extract(year from transaction_date) = 2020;
+
+-- find all the 2021 reoccurring_type transactions
+SELECT description,count(description) from t_transaction where reoccurring_type != 'undefined' and extract(year from transaction_date) = 2021 group by description;
