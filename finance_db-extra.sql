@@ -31,9 +31,10 @@ UPDATE t_transaction SET account_type = 'credit' WHERE account_name_owner = 'jcp
 UPDATE t_account SET account_type = 'credit' WHERE account_name_owner = 'jcpenney_kari' AND account_type = 'debit';
 ALTER TABLE t_transaction ENABLE TRIGGER ALL;
 commit;
+
 SELECT count(*) FROM t_transaction WHERE account_name_owner = 'jcpenney_kari' AND account_type = 'debit';
 
--- actual 'Grand Total';
+-- select update actual 'Grand Total'
 SELECT (A.debits - B.credits) AS TOTALS FROM
       ( SELECT SUM(amount) AS debits FROM t_transaction WHERE account_type = 'debit' and active_status  = true) A,
       ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' and active_status = true) B;
@@ -43,12 +44,15 @@ UPDATE t_account SET totals = x.totals FROM (SELECT (A.debits - B.credits) AS to
       ( SELECT SUM(amount) AS credits FROM t_transaction WHERE account_type = 'credit' AND active_status = true) B) x WHERE t_account.account_name_owner = 'grand.total_dummy';
 
 
+-- look for double spaces in the description
 SELECT description FROM t_transaction WHERE description LIKE '%  %';
 SELECT notes FROM t_transaction WHERE notes LIKE '%  %';
 
+-- fix all doublespaces in the notes
 UPDATE t_transaction SET notes = replace(notes , '  ', ' ') WHERE notes LIKE '%  %';
 COMMIT;
 
+-- remove spaces from description
 UPDATE t_transaction SET description = replace(description , '  ', ' ') WHERE description LIKE '%  %';
 COMMIT;
 
@@ -110,30 +114,37 @@ SELECT setval('t_category_category_id_seq', (SELECT MAX(category_id) FROM t_cate
 SELECT setval('t_description_description_id_seq', (SELECT MAX(description_id) FROM t_description)+1);
 SELECT setval('t_parm_parm_id_seq', (SELECT MAX(parm_id) FROM t_parm)+1);
 
+-- find dangling payments in source or destination
 select * from t_payment where guid_source not in (select guid from t_transaction);
 select * from t_payment where guid_destination not in (select guid from t_transaction);
 
+-- find invalid receipt images
 select receipt_image_id from t_receipt_image where receipt_image_id not in (select receipt_image_id from t_transaction);
 
+-- set timezone to Chicago
 SET timezone = 'America/Chicago';
 COMMIT;
 show timezone;
 
+-- setup testing parameters, timezone and payment
 INSERT INTO t_parm(parm_name, parm_value, active_status) VALUES('payment_account', 'bank_brian', true);
+INSERT INTO t_parm(parm_name, parm_value, active_status) VALUES('timezone', 'America/Chicago', true);
 
-
--- clone a transacation
+-- clone a transacation for the next year based on a single transacation
 INSERT INTO t_transaction(
-  account_id, account_type, account_name_owner, guid, transaction_date, description, category, amount, transaction_state, reoccurring, reoccurring_type, active_status, notes, receipt_image_id,        date_updated, date_added
+  account_id, account_type, account_name_owner, guid, transaction_date, description, category, amount, transaction_state, reoccurring, reoccurring_type, active_status, notes, receipt_image_id, date_updated, date_added
 )
 SELECT
-account_id, account_type, account_name_owner, uuid_generate_v4(), transaction_date + interval '30' day , description, category, amount, transaction_state, reoccurring, 'monthly', active_status, notes, receipt_image_id, now(), now()
+account_id, account_type, account_name_owner, uuid_generate_v4(), transaction_date + interval '365' day , description, category, amount, transaction_state, reoccurring, 'monthly', active_status, notes, receipt_image_id, now(), now()
 FROM t_transaction where guid='d19885c4-e85e-49e6-a081-ffb54e97ef79';
 
+-- Search and replace string in description
+update t_transaction set description = replace(description, ' - *reoccur*', '') WHERE description LIKE ' - *reoccur*';
 
-update t_transaction set description = replace(description, ' - *reoccur*', '');
+-- find all descriptions used more than 10 times
+SELECT description, count(description) as cnt from t_transaction where description in (select description from t_description where active_status=true) group by description HAVING COUNT(description) < 11 order by cnt desc;
 
-select description, count(description) as cnt from t_transaction where description in (select description from t_description where active_status=true) group by description HAVING COUNT(description) < 11 order by cnt desc;
-
-update t_description set active_status=false where description in (
+-- updates descriptions to false based on conditions on the t_transaction table
+UPDATE t_description set active_status=false where description in (
 select description from t_transaction where description in (select description from t_description where active_status=true) group by description HAVING COUNT(description) < 11);
+COMMIT;
