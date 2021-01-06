@@ -77,10 +77,10 @@ select * from t_transaction  where transaction_state = 'outstanding' and transac
 -- find all the accounts that need payments
 SELECT account_name_owner, SUM(amount) as totals FROM t_transaction WHERE transaction_state = 'cleared' and account_name_owner in (select account_name_owner from t_account where account_type = 'credit' and active_status = true)  group by account_name_owner having sum(amount) > 0;
 
+-- find accounts that need payments
 SELECT account_name_owner FROM t_transaction WHERE transaction_state = 'cleared' and account_name_owner in (select account_name_owner from t_account where account_type = 'credit' and active_status = true)  group by account_name_owner having sum(amount) > 0;
 
-
--- find all the accounts that need payments
+-- find all the accounts that need payments -- with details
 SELECT account_name_owner, SUM(amount) as totals FROM t_transaction WHERE transaction_state = 'cleared' and account_name_owner in (select account_name_owner from t_account where account_type = 'credit' and active_status = true) or(transaction_state = 'outstanding' and account_type = 'credit' and description ='payment') group by account_name_owner having sum(amount) > 0 order by account_name_owner;
 
 SELECT account_name_owner, amount as totals from t_transaction where transaction_state = 'outstanding' and account_type = 'credit' and description ='payment';
@@ -89,17 +89,8 @@ SELECT account_name_owner, amount as totals from t_transaction where transaction
 SELECT account_name_owner FROM t_transaction WHERE transaction_state = 'cleared' and account_name_owner in (select account_name_owner from t_account where account_type = 'credit' and active_status = true) or (transaction_state = 'outstanding' and account_type = 'credit' and description ='payment') group by account_name_owner having sum(amount) > 0 order by account_name_owner;
 
 
+-- find all centerpoint energy transactions in 2020
 SELECT 'centerpoint_brian', (transaction_date + interval '1 year'), description, abs(amount) from t_transaction WHERE description LIKE '%centerpoint%' and extract(year from transaction_date) = 2020;
-
-SELECT 'xcel-energy_brian', (transaction_date + interval '1 year'), description, abs(amount) from t_transaction WHERE description LIKE '%xcel%' and extract(year from transaction_date) = 2020;
-
-SELECT 'coon-rapids-water_brian', (transaction_date + interval '1 year'), description, abs(amount) from t_transaction WHERE description LIKE 'city of coon rapids' and extract(year from transaction_date) = 2020;
-
-SELECT 'coon-rapids-water_brian', (transaction_date + interval '1 year'), description, abs(amount) from t_transaction WHERE description LIKE 'city of coon rapids' and extract(year from transaction_date) = 2020;
-
-SELECT 'chase_kari', (transaction_date + interval '1 year'), description, abs(amount) from t_transaction WHERE description LIKE 'allstate insurance' and extract(year from transaction_date) = 2020;
-
-SELECT 'chase_kari', (transaction_date + interval '1 year'), description, abs(amount) from t_transaction WHERE description LIKE 'century link' and extract(year from transaction_date) = 2020;
 
 SELECT 'usbankcash_kari', (transaction_date + interval '1 year'), description, abs(amount) from t_transaction WHERE description LIKE 't-mobile.com' and extract(year from transaction_date) = 2020;
 
