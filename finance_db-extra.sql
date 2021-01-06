@@ -145,3 +145,6 @@ SELECT description, (transaction_date + interval '1 year'), description, abs(amo
 
 -- find all the 2021 reoccurring_type transactions
 SELECT description,count(description) from t_transaction where reoccurring_type != 'undefined' and extract(year from transaction_date) = 2021 group by description;
+
+
+SELECT 'TRUNCATE ' || table_name || ';' FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';
