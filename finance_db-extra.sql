@@ -148,3 +148,5 @@ SELECT description,count(description) from t_transaction where reoccurring_type 
 
 
 SELECT 'TRUNCATE ' || table_name || ';' FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';
+
+select (left(encode(jpg_image, 'hex'), 44)) from t_receipt_image;
