@@ -53,7 +53,7 @@ psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "ALTER TABLE
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_description FROM 't_description.csv' CSV HEADER; commit"
 
 echo account
-psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT account_id, account_name_owner, account_name, account_owner, account_type, active_status, moniker, totals, totals_balanced, date_closed, date_updated, date_added from t_account ORDER BY account_id) TO 't_account.csv' CSV HEADER"
+psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT account_id, account_name_owner, account_name, account_owner, account_type, active_status, payment_required, moniker, totals, totals_balanced, date_closed, date_updated, date_added from t_account ORDER BY account_id) TO 't_account.csv' CSV HEADER"
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_account FROM 't_account.csv' CSV HEADER; commit"
 
 
