@@ -29,6 +29,7 @@ if [ -n "$3" ]; then
   port=$3
 fi
 
+echo "database will restore to finance_db and finance_test_db"
 echo "server is '$server', port is set to '$port'."
 echo "Press enter to continue"
 read -r x
@@ -37,7 +38,8 @@ echo "$x" > /dev/null
 echo postgresql database password
 if psql -h "${server}" -p "${port}" -d postgres -U henninb < finance_db-drop.sql; then
   echo postgresql database password
-  pg_restore -h "${server}" -p "${port}" -U henninb -F t -d finance_db --verbose "${restore_filename}" | tee -a "finance-db-restore-${date}.log"
+  pg_restore -h "${server}" -p "${port}" -U henninb -F t -d finance_db --verbose "${restore_filename}" | tee -a "finance_db-restore-${date}.log"
+  pg_restore -h "${server}" -p "${port}" -U henninb -F t -d finance_test_db --verbose "${restore_filename}" | tee -a "finance_test_db-restore-${date}.log"
 else
   echo "failed to drop the old database [finance_db]."
 fi
