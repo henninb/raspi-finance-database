@@ -84,9 +84,8 @@ CREATE TABLE IF NOT EXISTS t_receipt_image
     active_status     BOOLEAN   NOT NULL DEFAULT TRUE,
     date_updated      TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0),
     date_added        TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0),
-    CONSTRAINT ck_jpg_size CHECK (length(image) <= 1048576), -- 1024 kb file size limit
-    CONSTRAINT ck_account_type CHECK (image_format_type IN ('jpeg', 'png', 'undefined'))
-    --TODO: change the names to image ^^^
+    CONSTRAINT ck_image_size CHECK (length(image) <= 1048576), -- 1024 kb file size limit
+    CONSTRAINT ck_image_type CHECK (image_format_type IN ('jpeg', 'png', 'undefined'))
 );
 
 -- alter table t_receipt_image rename column jpg_image to image;
@@ -94,7 +93,7 @@ CREATE TABLE IF NOT EXISTS t_receipt_image
 -- alter table t_receipt_image alter column image_format_type set not null;
 -- ALTER TABLE t_receipt_image DROP CONSTRAINT ck_image_type_jpg;
 -- ALTER TABLE t_receipt_image ADD COLUMN date_updated     TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0);
--- ALTER TABLE t_receipt_image ADD CONSTRAINT ck_image_size CHECK(length(receipt_image) <= 1024);
+-- ALTER TABLE t_receipt_image ADD CONSTRAINT ck_image_size CHECK(length(image) <= 1_048_576);
 -- select receipt_image_id, transaction_id, length(receipt_image)/1048576.0, left(encode(receipt_image,'hex'),100) from t_receipt_image;
 
 -----------------
