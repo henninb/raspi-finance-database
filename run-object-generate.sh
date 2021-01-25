@@ -23,6 +23,8 @@ REVOKE CONNECT ON DATABASE finance_db FROM public;
 
 \connect finance_db;
 
+CREATE SCHEMA prod;
+
 EOF
 
 cat > /tmp/sql-test <<EOF
@@ -45,6 +47,10 @@ REVOKE CONNECT ON DATABASE finance_test_db FROM public;
 
 \connect finance_test_db;
 
+CREATE SCHEMA stage;
+CREATE SCHEMA int;
+CREATE SCHEMA func;
+
 EOF
 
 cat > /tmp/sql-fresh <<EOF
@@ -66,6 +72,8 @@ GRANT ALL PRIVILEGES ON DATABASE finance_fresh_db TO henninb;
 REVOKE CONNECT ON DATABASE finance_fresh_db FROM public;
 
 \connect finance_fresh_db;
+
+CREATE SCHEMA prod;
 
 EOF
 
