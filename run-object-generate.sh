@@ -77,11 +77,11 @@ CREATE SCHEMA prod;
 
 EOF
 
-cat /tmp/sql-prod "$HOME/projects/raspi-finance-endpoint/src/main/resources/db/migration/V02__create-all-database-objects.sql" > finance_db-create.sql
+cat /tmp/sql-prod "$HOME/projects/raspi-finance-endpoint/src/main/resources/db/migration/prod/V01__create-ddl-objects-prod.sql" > finance_db-create.sql
 
-cat /tmp/sql-test "$HOME/projects/raspi-finance-endpoint/src/main/resources/db/migration/V02__create-all-database-objects.sql" > finance_test_db-create.sql
+cat /tmp/sql-test "$HOME/projects/raspi-finance-endpoint/src/main/resources/db/migration/prod/V01__create-ddl-objects-prod.sql" > finance_test_db-create.sql
 
-cat /tmp/sql-fresh "$HOME/projects/raspi-finance-endpoint/src/main/resources/db/migration/V02__create-all-database-objects.sql" > finance_fresh_db-create.sql
+cat /tmp/sql-fresh "$HOME/projects/raspi-finance-endpoint/src/main/resources/db/migration/prod/V01__create-ddl-objects-prod.sql" > finance_fresh_db-create.sql
 
 exit 0
 
