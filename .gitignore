@@ -3,6 +3,7 @@ nohup.out
 .idea
 *.log
 *.tar
+*.gz
 *.dat
 *.tsv
 *.csv
