@@ -79,7 +79,9 @@ EOF
 
 cat /tmp/sql-prod "$HOME/projects/raspi-finance-endpoint/src/main/resources/db/migration/prod/V01__create-ddl-objects-prod.sql" > finance_db-create.sql
 
-cat /tmp/sql-test "$HOME/projects/raspi-finance-endpoint/src/main/resources/db/migration/prod/V01__create-ddl-objects-prod.sql" > finance_test_db-create.sql
+cat /tmp/sql-test "$HOME/projects/raspi-finance-endpoint/src/test/integration/resources/db/migration/int/V01__create-ddl-objects-int.sql" > finance_test_db-create-int.sql
+
+cat /tmp/sql-test "$HOME/projects/raspi-finance-endpoint/src/test/functional/resources/db/migration/func/V01__create-ddl-objects-func.sql" > finance_test_db-create-func.sql
 
 cat /tmp/sql-fresh "$HOME/projects/raspi-finance-endpoint/src/main/resources/db/migration/prod/V01__create-ddl-objects-prod.sql" > finance_fresh_db-create.sql
 
