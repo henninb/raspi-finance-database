@@ -56,15 +56,13 @@ echo account
 psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT account_id, account_name_owner, account_name, account_owner, account_type, active_status, payment_required, moniker, future, outstanding, cleared, date_closed, date_updated, date_added from t_account ORDER BY account_id) TO 't_account.csv' CSV HEADER"
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_account FROM 't_account.csv' CSV HEADER; commit"
 
-
 echo category
 psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT category_id, category, active_status, date_updated, date_added from t_category ORDER BY category_id) TO 't_category.csv' CSV HEADER"
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_category FROM 't_category.csv' CSV HEADER; commit"
 
-#SELECT column_name  FROM information_schema.columns WHERE table_schema = 'public'  AND table_name   = 't_payment';
-
-
-#SELECT column_name  FROM information_schema.columns WHERE table_schema = 'public'  AND table_name   = 't_parm';
+echo validationAmount
+psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT validation_id, account_id, validation_date, transaction_state, amount, active_status, date_updated, date_added FROM t_validation_amount ORDER BY validation_id) TO 't_validation_amount.csv' CSV HEADER"
+psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_validation_amount FROM 't_validation_amount.csv' CSV HEADER; commit"
 
 echo parm
 psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT parm_id, parm_name, parm_value, active_status, date_updated, date_added from t_parm ORDER BY parm_id) TO 't_parm.csv' CSV HEADER"
