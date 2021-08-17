@@ -64,9 +64,9 @@ echo validationAmount
 psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT validation_id, account_id, validation_date, transaction_state, amount, active_status, date_updated, date_added FROM t_validation_amount ORDER BY validation_id) TO 't_validation_amount.csv' CSV HEADER"
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_validation_amount FROM 't_validation_amount.csv' CSV HEADER; commit"
 
-echo parm
-psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT parm_id, parm_name, parm_value, active_status, date_updated, date_added from t_parm ORDER BY parm_id) TO 't_parm.csv' CSV HEADER"
-psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_parm FROM 't_parm.csv' CSV HEADER; commit"
+echo parameter
+psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT parameter_id, parameter_name, parameter_value, active_status, date_updated, date_added from t_parameter ORDER BY parameter_id) TO 't_parameter.csv' CSV HEADER"
+psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_parameter FROM 't_parameter.csv' CSV HEADER; commit"
 
 echo transaction
 psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT transaction_id, account_id, account_type, account_name_owner, guid, transaction_date, due_date, description, category, amount, transaction_state, reoccurring_type, active_status, notes, receipt_image_id, date_updated, date_added from t_transaction ORDER BY transaction_id) TO 't_transaction.csv' CSV HEADER"
