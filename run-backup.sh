@@ -47,7 +47,7 @@ psql -h localhost -p "${port}" -U "${username}" postgres < finance_fresh_db-crea
 #SELECT column_name  FROM information_schema.columns WHERE table_schema = 'public'  AND table_name   = 't_description';
 
 echo description
-psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT description_id, description, active_status, date_updated, date_added from t_description ORDER BY description_id) TO 't_description.csv' CSV HEADER"
+psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT description_id, description_name, active_status, date_updated, date_added from t_description ORDER BY description_id) TO 't_description.csv' CSV HEADER"
 # psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "ALTER TABLE t_receipt_image DROP CONSTRAINT IF EXISTS fk_transaction; commit"
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "ALTER TABLE t_transaction DROP CONSTRAINT IF EXISTS fk_receipt_image; commit"
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_description FROM 't_description.csv' CSV HEADER; commit"
@@ -57,7 +57,7 @@ psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT acc
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_account FROM 't_account.csv' CSV HEADER; commit"
 
 echo category
-psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT category_id, category, active_status, date_updated, date_added from t_category ORDER BY category_id) TO 't_category.csv' CSV HEADER"
+psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT category_id, category_name, active_status, date_updated, date_added from t_category ORDER BY category_id) TO 't_category.csv' CSV HEADER"
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_category FROM 't_category.csv' CSV HEADER; commit"
 
 echo validationAmount
