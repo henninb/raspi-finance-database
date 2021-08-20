@@ -2,18 +2,19 @@
 
 date=$(date '+%Y-%m-%d')
 port=5432
-version=v12-5
+version=v13-4
 username=henninb
 
 if [ "$OS" = "Darwin" ]; then
   server=$(ipconfig getifaddr en0)
 else
-  server=$(hostname -i | awk '{print $1}')
+  # server=$(hostname -i | awk '{print $1}')
+  server=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1  -d'/')
 fi
 
 if [ $# -ne 1 ] && [ $# -ne 2 ] && [ $# -ne 3 ]; then
   echo "Usage: $0 [server] [port] [version]"
-  echo "$0 192.168.100.124 5432 v13-1"
+  echo "$0 192.168.100.124 5432 v13-4"
   exit 1
 fi
 
@@ -29,17 +30,23 @@ if [ -n "$3" ]; then
   version=$3
 fi
 
-echo The most important point to remember is that both dump and restore should be performed using the latest binaries.
-echo For example, if we need to migrate from version 9.3 to version 11, we should be using the pg_dump binary of PostgreSQL 11 to connect to 9.3
+echo Reminder: both dump and restore should be performed using the latest binaries
+echo Example: migrate from version 9.3 to 11 - use pg_dump binary for 11 to connect to 9.3
 echo "server is '$server', port is set to '$port' on version '$version'."
 
-echo postgresql database password
-pg_dump -h "${server}" -p "${port}" -U ${username} -W -F t -d finance_db > "finance_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
-
-
-echo "Please enter the '${username}' password: "
+stty -echo
+printf "Please enter the postgres '%s' password: " ${username}
 read -r PGPASSWORD
 export PGPASSWORD
+stty echo
+printf "\n"
+
+echo "${server}:${port}:finance_db:${username}:${PGPASSWORD}" > "$HOME/.pgpass"
+echo "${server}:${port}:finance_fresh_db:${username}:${PGPASSWORD}" >> "$HOME/.pgpass"
+chmod 600 "$HOME/.pgpass"
+
+# echo postgresql database password
+pg_dump -h "${server}" -p "${port}" -U ${username} -W -F t -d finance_db > "finance_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
 
 echo create finance_fresh_db
 psql -h localhost -p "${port}" -U "${username}" postgres < finance_fresh_db-create.sql
