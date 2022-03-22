@@ -18,6 +18,11 @@ if [ $# -ne 1 ] && [ $# -ne 2 ] && [ $# -ne 3 ]; then
   exit 1
 fi
 
+if [ ! -x "$(command -v psql)" ]; then
+  echo "please install psql"
+  exit 2
+fi
+
 if [ -n "$1" ]; then
   server=$1
 fi
@@ -25,6 +30,9 @@ fi
 if [ -n "$2" ]; then
   port=$2
 fi
+
+# if ! psql -h localhost -p "${port}" -U "${username}" "select * from t_transaction"; then
+# fi
 
 if [ -n "$3" ]; then
   version=$3
@@ -34,6 +42,7 @@ echo Reminder: both dump and restore should be performed using the latest binari
 echo Example: migrate from version 9.3 to 11 - use pg_dump binary for 11 to connect to 9.3
 echo "server is '$server', port is set to '$port' on version '$version'."
 
+echo
 stty -echo
 printf "Please enter the postgres '%s' password: " ${username}
 read -r PGPASSWORD
