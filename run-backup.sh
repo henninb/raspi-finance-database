@@ -20,6 +20,7 @@ fi
 
 if [ ! -x "$(command -v psql)" ]; then
   echo "please install psql"
+  echo "then setup the database - sudo su - postgres"
   exit 2
 fi
 

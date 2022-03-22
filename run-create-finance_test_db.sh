@@ -12,7 +12,7 @@ fi
 
 if [ $# -ne 1 ] && [ $# -ne 2 ]; then
   echo "Usage: $0 [server] [port]"
-  echo "$0 192.168.100.124 5432"
+  echo "$0 192.168.10.25 5432"
   exit 1
 fi
 

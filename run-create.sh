@@ -11,8 +11,13 @@ fi
 
 if [ $# -ne 1 ] && [ $# -ne 2 ]; then
   echo "Usage: $0 [server] [port]"
-  echo "$0 192.168.100.124 5432"
+  echo "$0 localhost 5432"
   exit 1
+fi
+
+if [ ! -x "$(command -v psql)" ]; then
+  echo "please install psql"
+  exit 2
 fi
 
 if [ -n "$1" ]; then
