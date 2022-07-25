@@ -13,7 +13,7 @@ fi
 
 if [ $# -ne 1 ] && [ $# -ne 2 ] && [ $# -ne 3 ]; then
   echo "Usage: $0 [server] [port] [version]"
-  echo "$0 192.168.10.25 5432 v12-5"
+  echo "$0 192.168.10.25 5432 v13-1"
   exit 1
 fi
 
@@ -54,6 +54,8 @@ export PGHOST=localhost
 echo create finance_fresh_db
 # psql -h localhost -p "${port}" -U "${username}" postgres < finance_fresh_db-create.sql
 psql postgres < finance_fresh_db-create.sql
+
+echo scp "finance_db-${version}-${date}.tar pi:/home/pi/downloads"
 
 exit 0
 
@@ -106,6 +108,6 @@ psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "alter table
 echo postgresql database password
 pg_dump -h localhost -p "${port}" -U ${username} -W -F t -d finance_fresh_db > "finance_fresh_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
 
-echo scp "finance_db-${version}-${date}.tar pi:/home/pi"
+echo scp "finance_db-${version}-${date}.tar pi:/home/pi/downloads"
 
 exit 0
