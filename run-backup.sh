@@ -108,6 +108,7 @@ psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "alter table
 echo postgresql database password
 pg_dump -h localhost -p "${port}" -U ${username} -W -F t -d finance_fresh_db > "finance_fresh_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
 
-echo scp "finance_db-${version}-${date}.tar pi:/home/pi/downloads"
+echo scp -p "finance_db-${version}-${date}.tar raspi:/home/pi/downloads/finance-db-bkp/"
+scp -p "finance_db-${version}-${date}.tar raspi:/home/pi/downloads/finance-db-bkp/"
 
 exit 0
