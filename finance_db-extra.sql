@@ -150,3 +150,8 @@ SELECT description,count(description) from t_transaction where reoccurring_type 
 SELECT 'TRUNCATE ' || table_name || ';' FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';
 
 select (left(encode(jpg_image, 'hex'), 44)) from t_receipt_image;
+
+-- sum of credits vs debits
+select DATE_TRUNC('month',transaction_date) as dt, sum(amount) from t_transaction where account_type='credit' group by DATE_TRUNC('month',transaction_date) order by dt;
+
+select count(*) from t_transaction WHERE transaction_date BETWEEN SYMMETRIC '2022-08-01' AND '2022-08-31';
