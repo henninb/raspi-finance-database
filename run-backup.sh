@@ -86,7 +86,7 @@ psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT par
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_parameter FROM 't_parameter.csv' CSV HEADER; commit"
 
 echo transaction
-psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT transaction_id, account_id, account_type, account_name_owner, guid, transaction_date, due_date, description, category, amount, transaction_state, reoccurring_type, active_status, notes, receipt_image_id, date_updated, date_added from t_transaction ORDER BY transaction_id) TO 't_transaction.csv' CSV HEADER"
+psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT transaction_id, account_id, account_type, transaction_type, account_name_owner, guid, transaction_date, due_date, description, category, amount, transaction_state, reoccurring_type, active_status, notes, receipt_image_id, date_updated, date_added from t_transaction ORDER BY transaction_id) TO 't_transaction.csv' CSV HEADER"
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_transaction FROM 't_transaction.csv' CSV HEADER; commit"
 
 echo transaction_categories
