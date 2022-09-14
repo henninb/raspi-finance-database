@@ -155,3 +155,5 @@ select (left(encode(jpg_image, 'hex'), 44)) from t_receipt_image;
 select DATE_TRUNC('month',transaction_date) as dt, sum(amount) from t_transaction where account_type='credit' group by DATE_TRUNC('month',transaction_date) order by dt;
 
 select count(*) from t_transaction WHERE transaction_date BETWEEN SYMMETRIC '2022-08-01' AND '2022-08-31';
+
+select sum(amount) from t_transaction where transaction_date BETWEEN SYMMETRIC '2022-09-01' AND '2022-09-30' and transaction_type='expense';
