@@ -157,3 +157,14 @@ select DATE_TRUNC('month',transaction_date) as dt, sum(amount) from t_transactio
 select count(*) from t_transaction WHERE transaction_date BETWEEN SYMMETRIC '2022-08-01' AND '2022-08-31';
 
 select sum(amount) from t_transaction where transaction_date BETWEEN SYMMETRIC '2022-09-01' AND '2022-09-30' and transaction_type='expense';
+
+```
+select A.to_month as month, A.to_sum as income, B.to_sum as expense, (A.to_sum - B.to_sum) as net from
+(SELECT DATE_TRUNC('month',transaction_date) AS to_month, sum(abs(amount)) as to_sum
+FROM t_transaction where transaction_type='income' and transaction_date > '2022-01-01'
+GROUP BY DATE_TRUNC('month',transaction_date)) A,
+(SELECT DATE_TRUNC('month',transaction_date) AS to_month, sum(abs(amount)) as to_sum
+FROM t_transaction where transaction_type='expense' and transaction_date > '2022-01-01'
+GROUP BY DATE_TRUNC('month',transaction_date)) B 
+where A.to_month = B.to_month order by a.to_month;
+```
