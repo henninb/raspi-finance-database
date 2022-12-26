@@ -2,7 +2,7 @@
 
 date=$(date '+%Y-%m-%d')
 port=5432
-version=v13-1
+version=v15-1
 username=henninb
 
 if [ "$OS" = "Darwin" ]; then
@@ -13,7 +13,7 @@ fi
 
 if [ $# -ne 1 ] && [ $# -ne 2 ] && [ $# -ne 3 ]; then
   echo "Usage: $0 [server] [port] [version]"
-  echo "$0 192.168.10.25 5432 v13-1"
+  echo "$0 192.168.10.25 5432 v15-1"
   exit 1
 fi
 
@@ -46,8 +46,6 @@ pg_dump -w -c | gzip --best > "finance_db-${version}-${date}.tar.gz" | tee -a "f
 
 # echo postgresql database password
 # pg_dump -h "${server}" -p "${port}" -U ${username} -W -F t -d finance_db > "finance_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.$$.log"
-
-
 
 export PGHOST=localhost
 

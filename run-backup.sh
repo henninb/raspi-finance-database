@@ -2,7 +2,7 @@
 
 date=$(date '+%Y-%m-%d')
 port=5432
-version=v13-4
+version=v15-1
 username=henninb
 
 if [ "$OS" = "Darwin" ]; then
@@ -14,7 +14,7 @@ fi
 
 if [ $# -ne 1 ] && [ $# -ne 2 ] && [ $# -ne 3 ]; then
   echo "Usage: $0 [server] [port] [version]"
-  echo "$0 192.168.10.25 5432 v13-4"
+  echo "$0 192.168.10.25 5432 v15-1"
   exit 1
 fi
 
