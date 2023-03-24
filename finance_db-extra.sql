@@ -168,3 +168,18 @@ FROM t_transaction where transaction_type='expense' and transaction_date > '2022
 GROUP BY DATE_TRUNC('month',transaction_date)) B 
 where A.to_month = B.to_month order by a.to_month;
 ```
+
+-- rename an account
+ALTER TABLE t_transaction DISABLE TRIGGER ALL;
+UPDATE t_transaction SET account_name_owner = 'huntington-voice_brian' WHERE account_name_owner = 'huintington-voice_brian';
+UPDATE t_account SET account_name_owner = 'huntington-voice_brian' WHERE account_name_owner = 'huintington-voice_brian';
+ALTER TABLE t_transaction ENABLE TRIGGER ALL;
+commit;
+
+
+-- rename an account
+ALTER TABLE t_transaction DISABLE TRIGGER ALL;
+UPDATE t_transaction SET account_name_owner = 'capitalone-savings_brian' WHERE account_name_owner = 'ing-savings_brian';
+UPDATE t_account SET account_name_owner = 'capitalone-savings_brian' WHERE account_name_owner = 'ing-savings_brian';
+ALTER TABLE t_transaction ENABLE TRIGGER ALL;
+commit;
