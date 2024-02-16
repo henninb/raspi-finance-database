@@ -14,13 +14,13 @@ fi
 
 if [ $# -ne 1 ] && [ $# -ne 2 ] && [ $# -ne 3 ]; then
   echo "Usage: $0 [server] [port] [version]"
-  echo "$0 192.168.10.25 5432 v15-1"
+  echo "$0 192.168.10.25 5432 v16-1"
   exit 1
 fi
 
 if [ ! -x "$(command -v psql)" ]; then
   echo "please install psql"
-  echo "then setup the database - sudo su - postgres"
+  # echo "then setup the database - sudo su - postgres"
   exit 2
 fi
 
