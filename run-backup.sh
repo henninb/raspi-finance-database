@@ -40,7 +40,7 @@ if [ -n "$3" ]; then
 fi
 
 echo Reminder: both dump and restore should be performed using the latest binaries
-echo Example: migrate from version 9.3 to 11 - use pg_dump binary for 11 to connect to 9.3
+echo Example: migrate from version 16.3 to 17.1 - use pg_dump binary for 17.1 to connect to 16.3
 echo "server is '$server', port is set to '$port' on version '$version'."
 
 echo
@@ -96,6 +96,10 @@ psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_tra
 echo payment
 psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT payment_id, account_name_owner, transaction_date, amount, guid_source, guid_destination, owner, active_status, date_updated, date_added from t_payment ORDER BY payment_id) TO 't_payment.csv' CSV HEADER"
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_payment FROM 't_payment.csv' CSV HEADER; commit"
+
+echo transfer
+psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT transfer_id, source_account, destination_account, transaction_date, amount, guid_source, guid_destination, owner, active_status, date_updated, date_added from t_transfer ORDER BY transfer_id) TO 't_transfer.csv' CSV HEADER"
+psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_transfer FROM 't_transfer.csv' CSV HEADER; commit"
 
 echo receipt_image
 psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT receipt_image_id, transaction_id, image, thumbnail, image_format_type, owner, active_status, date_updated, date_added from t_receipt_image ORDER BY receipt_image_id) TO 't_receipt_image.csv' CSV HEADER"

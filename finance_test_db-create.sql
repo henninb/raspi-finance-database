@@ -225,12 +225,34 @@ CREATE TABLE IF NOT EXISTS public.t_payment
     date_updated       TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
     date_added         TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
     CONSTRAINT payment_constraint UNIQUE (account_name_owner, transaction_date, amount),
-    CONSTRAINT fk_guid_source FOREIGN KEY (guid_source) REFERENCES public.t_transaction (guid) ON DELETE CASCADE,
-    CONSTRAINT fk_guid_destination FOREIGN KEY (guid_destination) REFERENCES public.t_transaction (guid) ON DELETE CASCADE
+    CONSTRAINT fk_payment_guid_source FOREIGN KEY (guid_source) REFERENCES public.t_transaction (guid) ON DELETE CASCADE,
+    CONSTRAINT fk_payment_guid_destination FOREIGN KEY (guid_destination) REFERENCES public.t_transaction (guid) ON DELETE CASCADE
 );
 
 -- ALTER TABLE public.t_payment drop constraint fk_guid_source, add CONSTRAINT fk_guid_source FOREIGN KEY (guid_source) REFERENCES public.t_transaction (guid) ON DELETE CASCADE;
 -- ALTER TABLE public.t_payment drop constraint fk_guid_destination, add CONSTRAINT fk_guid_destination FOREIGN KEY (guid_destination) REFERENCES public.t_transaction (guid) ON DELETE CASCADE;
+
+
+--------------
+-- Transfer --
+--------------
+CREATE TABLE IF NOT EXISTS public.t_transfer
+(
+    transfer_id         BIGSERIAL PRIMARY KEY,
+    source_account      TEXT                                  NOT NULL,
+    destination_account TEXT                                  NOT NULL,
+    transaction_date    DATE                                  NOT NULL,
+    amount              NUMERIC(8, 2) DEFAULT 0.00            NOT NULL,
+    guid_source         TEXT                                  NOT NULL,
+    guid_destination    TEXT                                  NOT NULL,
+    owner               TEXT                                  NULL,
+    active_status       BOOLEAN       DEFAULT TRUE            NOT NULL,
+    date_updated        TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    date_added          TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    CONSTRAINT transfer_constraint UNIQUE (source_account, destination_account, transaction_date, amount),
+    CONSTRAINT fk_transfer_guid_source FOREIGN KEY (guid_source) REFERENCES public.t_transaction (guid) ON DELETE CASCADE,
+    CONSTRAINT fk_transfer_guid_destination FOREIGN KEY (guid_destination) REFERENCES public.t_transaction (guid) ON DELETE CASCADE
+);
 
 ------------------
 -- Parameter    --
@@ -287,9 +309,6 @@ $$
       NEW.date_updated := CURRENT_TIMESTAMP;
       RETURN NEW;
     END;
-
-
-
 $$;
 
 CREATE OR REPLACE FUNCTION fn_insert_transaction_categories()
@@ -303,10 +322,53 @@ $$
       NEW.date_added := CURRENT_TIMESTAMP;
       RETURN NEW;
     END;
-
-
-
 $$;
+
+
+CREATE OR REPLACE FUNCTION rename_account_owner(
+    p_old_name VARCHAR,
+    p_new_name VARCHAR
+)
+RETURNS VOID
+SET SCHEMA 'public'
+LANGUAGE PLPGSQL
+AS
+$$
+BEGIN
+    EXECUTE 'ALTER TABLE t_transaction DISABLE TRIGGER ALL';
+
+    EXECUTE 'UPDATE t_transaction SET account_name_owner = $1 WHERE account_name_owner = $2'
+    USING p_new_name, p_old_name;
+
+    EXECUTE 'UPDATE t_account SET account_name_owner = $1 WHERE account_name_owner = $2'
+    USING p_new_name, p_old_name;
+
+    EXECUTE 'ALTER TABLE t_transaction ENABLE TRIGGER ALL';
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION disable_account_owner(
+    p_new_name VARCHAR
+)
+RETURNS VOID
+SET SCHEMA 'public'
+LANGUAGE PLPGSQL
+AS
+$$
+BEGIN
+    EXECUTE 'ALTER TABLE t_transaction DISABLE TRIGGER ALL';
+
+    EXECUTE 'UPDATE t_transaction SET active_status = false WHERE account_name_owner = $1'
+    USING p_new_name;
+
+    EXECUTE 'UPDATE t_account SET active_status = false WHERE account_name_owner = $1'
+    USING p_new_name;
+
+    EXECUTE 'ALTER TABLE t_transaction ENABLE TRIGGER ALL';
+END;
+$$;
+
 
 DROP TRIGGER IF EXISTS tr_insert_transaction_categories ON public.t_transaction_categories;
 CREATE TRIGGER tr_insert_transaction_categories
