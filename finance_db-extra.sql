@@ -183,3 +183,26 @@ UPDATE t_transaction SET account_name_owner = 'capitalone-savings_brian' WHERE a
 UPDATE t_account SET account_name_owner = 'capitalone-savings_brian' WHERE account_name_owner = 'ing-savings_brian';
 ALTER TABLE t_transaction ENABLE TRIGGER ALL;
 commit;
+
+
+
+
+-- find when t_account and t_transaction are not matching with active_status flag
+SELECT *
+FROM t_transaction
+WHERE t_transaction.active_status = true
+  AND t_transaction.account_name_owner IN (
+      SELECT account_name_owner
+      FROM t_account
+      WHERE active_status = false
+  );
+
+-- reset the flag
+UPDATE t_transaction
+SET active_status = false
+WHERE account_name_owner IN (
+    SELECT account_name_owner
+    FROM t_account
+    WHERE active_status = false
+)
+  AND active_status = true;
