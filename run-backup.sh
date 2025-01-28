@@ -58,7 +58,7 @@ chmod 600 "$HOME/.pgpass"
 # echo postgresql database password
 pg_dump -h "${server}" -p "${port}" -U ${username} -W -F t -d finance_db > "finance_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
 
-echo create finance_fresh_db
+echo create finance_fresh_db on localhost
 psql -h localhost -p "${port}" -U "${username}" postgres < finance_fresh_db-create.sql
 
 #SELECT column_name  FROM information_schema.columns WHERE table_schema = 'public'  AND table_name   = 't_description';
@@ -109,7 +109,7 @@ psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_rec
 echo Add fk_receipt_image constraint
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "alter table t_transaction add CONSTRAINT fk_receipt_image FOREIGN KEY (receipt_image_id) REFERENCES t_receipt_image (receipt_image_id) ON DELETE CASCADE; commit"
 
-echo postgresql database password
+echo finance_fresh_db database localhost password
 pg_dump -h localhost -p "${port}" -U ${username} -W -F t -d finance_fresh_db > "finance_fresh_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
 
 echo scp -p "finance_db-${version}-${date}.tar raspi:/home/pi/downloads/finance-db-bkp/"
