@@ -81,6 +81,8 @@ CREATE TABLE IF NOT EXISTS public.t_user
     user_id       BIGSERIAL PRIMARY KEY,
     username      TEXT UNIQUE                       NOT NULL,
     password      TEXT                              NOT NULL,
+    first_name    TEXT                              NOT NULL,
+    last_name     TEXT                              NOT NULL,
     active_status BOOLEAN   DEFAULT TRUE            NOT NULL,
     date_updated  TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
     date_added    TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
@@ -215,6 +217,11 @@ CREATE TABLE IF NOT EXISTS public.t_transaction
     CONSTRAINT fk_description_name FOREIGN KEY (description) REFERENCES public.t_description (description_name) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
+-- Required to happen after the t_transaction table is created
+ALTER TABLE public.t_receipt_image
+    DROP CONSTRAINT IF EXISTS fk_transaction;
+ALTER TABLE public.t_receipt_image
+    ADD CONSTRAINT fk_transaction FOREIGN KEY (transaction_id) REFERENCES public.t_transaction (transaction_id) ON UPDATE CASCADE;
 
 CREATE TABLE IF NOT EXISTS public.t_pending_transaction
 (
@@ -228,30 +235,28 @@ CREATE TABLE IF NOT EXISTS public.t_pending_transaction
     date_added             TIMESTAMP     DEFAULT now()       NOT NULL,
     CONSTRAINT fk_pending_account FOREIGN KEY (account_name_owner)
         REFERENCES public.t_account (account_name_owner) ON UPDATE CASCADE,
-    CONSTRAINT ck_review_status CHECK (review_status IN ('pending', 'approved', 'rejected'))
+    CONSTRAINT ck_review_status CHECK (review_status IN ('pending', 'approved', 'rejected')),
+    CONSTRAINT unique_pending_transaction_fields UNIQUE (account_name_owner, transaction_date, description, amount)
 );
-
--- Required to happen after the t_transaction table is created
-ALTER TABLE public.t_receipt_image
-    DROP CONSTRAINT IF EXISTS fk_transaction;
-ALTER TABLE public.t_receipt_image
-    ADD CONSTRAINT fk_transaction FOREIGN KEY (transaction_id) REFERENCES public.t_transaction (transaction_id) ON UPDATE CASCADE;
 
 -------------
 -- Payment --
 -------------
+-- TODO: update constraints
 CREATE TABLE IF NOT EXISTS public.t_payment
 (
-    payment_id         BIGSERIAL PRIMARY KEY,
-    account_name_owner TEXT                                  NOT NULL,
-    transaction_date   DATE                                  NOT NULL,
-    amount             NUMERIC(12, 2) DEFAULT 0.00           NOT NULL,
-    guid_source        TEXT                                  NOT NULL,
-    guid_destination   TEXT                                  NOT NULL,
-    owner              TEXT                                  NULL,
-    active_status      BOOLEAN       DEFAULT TRUE            NOT NULL,
-    date_updated       TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    date_added         TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    payment_id           BIGSERIAL PRIMARY KEY,
+    account_name_owner   TEXT                                  NOT NULL,
+    source_account       TEXT                                  NOT NULL,
+    destination_account  TEXT                                  NOT NULL,
+    transaction_date     DATE                                  NOT NULL,
+    amount               NUMERIC(12, 2) DEFAULT 0.00           NOT NULL,
+    guid_source          TEXT                                  NOT NULL,
+    guid_destination     TEXT                                  NOT NULL,
+    owner                TEXT                                  NULL,
+    active_status        BOOLEAN       DEFAULT TRUE            NOT NULL,
+    date_updated         TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    date_added           TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
     CONSTRAINT payment_constraint UNIQUE (account_name_owner, transaction_date, amount),
     CONSTRAINT fk_payment_guid_source FOREIGN KEY (guid_source) REFERENCES public.t_transaction (guid) ON UPDATE CASCADE,
     CONSTRAINT fk_payment_guid_destination FOREIGN KEY (guid_destination) REFERENCES public.t_transaction (guid) ON UPDATE CASCADE,
