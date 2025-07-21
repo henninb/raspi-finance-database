@@ -40,23 +40,21 @@ if [ -n "$3" ]; then
 fi
 
 echo Reminder: both dump and restore should be performed using the latest binaries
-echo Example: migrate from version 16.3 to 17.1 - use pg_dump binary for 17.1 to connect to 16.3
+echo Example: migrate from version 17.3 to 17.5 - use pg_dump binary for 17.5 to connect to 17.3
 echo "server is '$server', port is set to '$port' on version '$version'."
 
-echo
-stty -echo
-printf "Please enter the postgres '%s' password: " ${username}
-read -r PGPASSWORD
-export PGPASSWORD
-stty echo
-printf "\n"
+if [ ! -f "$HOME/.pgpass" ]; then
+  echo "Error: ~/.pgpass file not found. Please create it with the format:"
+  echo "${server}:${port}:finance_db:${username}:your_password"
+  echo "${server}:${port}:finance_fresh_db:${username}:your_password"
+  echo "Then run: chmod 600 ~/.pgpass"
+  exit 1
+fi
 
-echo "${server}:${port}:finance_db:${username}:${PGPASSWORD}" > "$HOME/.pgpass"
-echo "${server}:${port}:finance_fresh_db:${username}:${PGPASSWORD}" >> "$HOME/.pgpass"
-chmod 600 "$HOME/.pgpass"
+export PGPASSFILE="$HOME/.pgpass"
 
 # echo postgresql database password
-pg_dump -h "${server}" -p "${port}" -U ${username} -W -F t -d finance_db > "finance_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
+pg_dump -h "${server}" -p "${port}" -U ${username} -F t -d finance_db > "finance_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
 
 echo create finance_fresh_db on localhost
 psql -h localhost -p "${port}" -U "${username}" postgres < finance_fresh_db-create.sql
@@ -114,7 +112,7 @@ echo Add fk_receipt_image constraint
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "alter table t_transaction add CONSTRAINT fk_receipt_image FOREIGN KEY (receipt_image_id) REFERENCES t_receipt_image (receipt_image_id) ON DELETE CASCADE; commit"
 
 echo finance_fresh_db database localhost password
-pg_dump -h localhost -p "${port}" -U ${username} -W -F t -d finance_fresh_db > "finance_fresh_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
+pg_dump -h localhost -p "${port}" -U ${username} -F t -d finance_fresh_db > "finance_fresh_db-${version}-${date}.tar" | tee -a "finance-db-backup-${date}.log"
 
 echo scp -p "finance_db-${version}-${date}.tar raspi:/home/pi/downloads/finance-db-bkp/"
 scp -p "finance_db-${version}-${date}.tar" raspi:/home/pi/downloads/finance-db-bkp/
