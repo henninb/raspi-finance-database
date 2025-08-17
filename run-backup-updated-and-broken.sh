@@ -92,7 +92,7 @@ psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT cat
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_transaction_categories FROM 't_transaction_categories.csv' CSV HEADER; commit"
 
 echo payment
-psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT payment_id, account_name_owner, transaction_date, amount, guid_source, guid_destination, active_status, date_updated, date_added from t_payment ORDER BY payment_id) TO 't_payment.csv' CSV HEADER"
+psql -h "${server}" -p "${port}" -U ${username} finance_db -c "\copy (SELECT payment_id, source_account, destination_account, transaction_date, amount, guid_source, guid_destination, owner, active_status, date_updated, date_added from t_payment ORDER BY payment_id) TO 't_payment.csv' CSV HEADER"
 psql -h localhost -p "${port}" -U "${username}" finance_fresh_db -c "\copy t_payment FROM 't_payment.csv' CSV HEADER; commit"
 
 echo receipt_image

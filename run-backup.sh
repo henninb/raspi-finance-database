@@ -324,7 +324,7 @@ if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' finance_fresh_
 fi
 
 # Export and import payment table
-if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT payment_id, account_name_owner, source_account, destination_account, transaction_date, amount, guid_source, guid_destination, owner, active_status, date_updated, date_added from t_payment ORDER BY payment_id) TO 't_payment.csv' CSV HEADER\"" "Export t_payment table"; then
+if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT payment_id, source_account, destination_account, transaction_date, amount, guid_source, guid_destination, owner, active_status, date_updated, date_added from t_payment ORDER BY payment_id) TO 't_payment.csv' CSV HEADER\"" "Export t_payment table"; then
     cleanup_on_failure
     exit 6
 fi

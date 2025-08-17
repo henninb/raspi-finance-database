@@ -29,6 +29,13 @@ read -r x
 echo "$x" > /dev/null
 
 echo postgresql database password
+
+# Fix collation version mismatches
+echo "Refreshing collation versions..."
+psql -h "${server}" -p "${port}" -U henninb -d postgres -c "ALTER DATABASE postgres REFRESH COLLATION VERSION;" > /dev/null 2>&1
+psql -h "${server}" -p "${port}" -U henninb -d template1 -c "ALTER DATABASE template1 REFRESH COLLATION VERSION;" > /dev/null 2>&1
+psql -h "${server}" -p "${port}" -U henninb -d finance_db -c "ALTER DATABASE finance_db REFRESH COLLATION VERSION;" > /dev/null 2>&1
+
 psql -t -h "${server}" -p "${port}" -U henninb -F t -d finance_db < "select-receipt-image.sql" | tee -a "select-receipt-image-${date}.log"
 
 exit 0
