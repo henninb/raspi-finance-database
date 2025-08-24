@@ -102,7 +102,7 @@ test_db_connection() {
     
     log_msg "Testing database connectivity to ${test_server}:${test_port}"
     
-    if ! psql -h "$test_server" -p "$test_port" -U "$test_user" -d postgres -c "SELECT 1;" >/dev/null 2>&1; then
+    if ! psql -h "$test_server" -p "$test_port" -U "$test_user" -d finance_db -c "SELECT 1;" >/dev/null 2>&1; then
         log_error "Cannot connect to database at ${test_server}:${test_port} with user ${test_user}"
         log_error "Please check: 1) Server is running 2) Network connectivity 3) Credentials in ~/.pgpass"
         return 1
