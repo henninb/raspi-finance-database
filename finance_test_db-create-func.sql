@@ -21,8 +21,7 @@ CREATE SCHEMA stage;
 CREATE SCHEMA int;
 CREATE SCHEMA func;
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-SET client_min_messages TO WARNING;
+-- H2 Database Schema for Functional Tests
 
 CREATE SCHEMA IF NOT EXISTS func;
 
@@ -31,7 +30,7 @@ CREATE SCHEMA IF NOT EXISTS func;
 -------------
 CREATE TABLE IF NOT EXISTS func.t_account
 (
-    account_id         BIGSERIAL PRIMARY KEY,
+    account_id         BIGINT AUTO_INCREMENT PRIMARY KEY,
     account_name_owner TEXT UNIQUE                           NOT NULL,
     account_name       TEXT                                  NULL,     -- NULL for now
     account_owner      TEXT                                  NULL,     -- NULL for now
@@ -42,9 +41,10 @@ CREATE TABLE IF NOT EXISTS func.t_account
     future             NUMERIC(8, 2) DEFAULT 0.00            NULL,
     outstanding        NUMERIC(8, 2) DEFAULT 0.00            NULL,
     cleared            NUMERIC(8, 2) DEFAULT 0.00            NULL,
-    date_closed        TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL, -- TODO: should be null by default
-    date_updated       TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    date_added         TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    date_closed        TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    validation_date    TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_updated       TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_added         TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
     CONSTRAINT unique_account_name_owner_account_id UNIQUE (account_id, account_name_owner, account_type),
     CONSTRAINT unique_account_name_owner_account_type UNIQUE (account_name_owner, account_type),
     CONSTRAINT ck_account_type CHECK (account_type IN ('debit', 'credit', 'undefined')),
@@ -57,15 +57,15 @@ CREATE TABLE IF NOT EXISTS func.t_account
 -- Validation Amount Date --
 ----------------------------
 CREATE TABLE IF NOT EXISTS func.t_validation_amount(
-    validation_id BIGSERIAL PRIMARY KEY,
+    validation_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     account_id         BIGINT                                NOT NULL,
-    validation_date         TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    validation_date         TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
     transaction_state  TEXT          DEFAULT 'undefined'     NOT NULL,
     amount             NUMERIC(8, 2) DEFAULT 0.00            NOT NULL,
     active_status      BOOLEAN       DEFAULT TRUE            NOT NULL,
-    date_updated  TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    date_added    TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    CONSTRAINT ck_transaction_state CHECK (transaction_state IN ('outstanding', 'future', 'cleared', 'undefined')),
+    date_updated  TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_added    TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    CONSTRAINT ck_validation_transaction_state CHECK (transaction_state IN ('outstanding', 'future', 'cleared', 'undefined')),
     CONSTRAINT fk_account_id FOREIGN KEY (account_id) REFERENCES func.t_account (account_id) ON DELETE CASCADE
 );
 
@@ -74,12 +74,14 @@ CREATE TABLE IF NOT EXISTS func.t_validation_amount(
 --------------
 CREATE TABLE IF NOT EXISTS func.t_user
 (
-    user_id       BIGSERIAL PRIMARY KEY,
+    user_id       BIGINT AUTO_INCREMENT PRIMARY KEY,
     username      TEXT UNIQUE                       NOT NULL,
     password      TEXT                              NOT NULL,
+    first_name    TEXT                              NOT NULL,
+    last_name     TEXT                              NOT NULL,
     active_status BOOLEAN   DEFAULT TRUE            NOT NULL,
-    date_updated  TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    date_added    TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    date_updated  TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_added    TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
     CONSTRAINT ck_lowercase_username CHECK (username = lower(username))
 );
 
@@ -88,12 +90,12 @@ CREATE TABLE IF NOT EXISTS func.t_user
 --------------
 CREATE TABLE IF NOT EXISTS func.t_role
 (
-    role_id       BIGSERIAL PRIMARY KEY,
+    role_id       BIGINT AUTO_INCREMENT PRIMARY KEY,
     role          TEXT UNIQUE                       NOT NULL,
     active_status BOOLEAN   DEFAULT TRUE            NOT NULL,
-    date_updated  TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    date_added    TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    CONSTRAINT ck_lowercase_username CHECK (role = lower(role))
+    date_updated  TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_added    TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    CONSTRAINT ck_lowercase_role CHECK (role = lower(role))
 );
 
 --------------
@@ -101,11 +103,11 @@ CREATE TABLE IF NOT EXISTS func.t_role
 --------------
 CREATE TABLE IF NOT EXISTS func.t_category
 (
-    category_id   BIGSERIAL PRIMARY KEY,
+    category_id   BIGINT AUTO_INCREMENT PRIMARY KEY,
     category_name      TEXT UNIQUE                       NOT NULL,
     active_status BOOLEAN   DEFAULT TRUE            NOT NULL,
-    date_updated  TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    date_added    TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    date_updated  TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_added    TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
     CONSTRAINT ck_lowercase_category CHECK (category_name = lower(category_name))
 );
 
@@ -116,8 +118,8 @@ CREATE TABLE IF NOT EXISTS func.t_transaction_categories
 (
     category_id    BIGINT                            NOT NULL,
     transaction_id BIGINT                            NOT NULL,
-    date_updated   TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    date_added     TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    date_updated   TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_added     TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
     PRIMARY KEY (category_id, transaction_id)
 );
 
@@ -126,14 +128,14 @@ CREATE TABLE IF NOT EXISTS func.t_transaction_categories
 -------------------
 CREATE TABLE IF NOT EXISTS func.t_receipt_image
 (
-    receipt_image_id  BIGSERIAL PRIMARY KEY,
+    receipt_image_id  BIGINT AUTO_INCREMENT PRIMARY KEY,
     transaction_id    BIGINT                            NOT NULL,
-    image             BYTEA                             NOT NULL,
-    thumbnail         BYTEA                             NOT NULL,
+    image             BLOB                             NOT NULL,
+    thumbnail         BLOB                             NOT NULL,
     image_format_type TEXT      DEFAULT 'undefined'     NOT NULL,
     active_status     BOOLEAN   DEFAULT TRUE            NOT NULL,
-    date_updated      TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    date_added        TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    date_updated      TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_added        TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
     CONSTRAINT ck_image_size CHECK (length(image) <= 1048576), -- 1024 kb file size limit
     CONSTRAINT ck_image_type CHECK (image_format_type IN ('jpeg', 'png', 'undefined'))
 );
@@ -142,7 +144,7 @@ CREATE TABLE IF NOT EXISTS func.t_receipt_image
 -- alter table t_receipt_image alter column thumbnail set not null;
 -- alter table t_receipt_image alter column image_format_type set not null;
 -- ALTER TABLE t_receipt_image DROP CONSTRAINT ck_image_type_jpg;
--- ALTER TABLE t_receipt_image ADD COLUMN date_updated     TIMESTAMP NOT NULL DEFAULT TO_TIMESTAMP(0);
+-- ALTER TABLE t_receipt_image ADD COLUMN date_updated     TIMESTAMP NOT NULL DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S');
 -- ALTER TABLE t_receipt_image ADD CONSTRAINT ck_image_size CHECK(length(image) <= 1_048_576);
 -- select receipt_image_id, transaction_id, length(receipt_image)/1048576.0, left(encode(receipt_image,'hex'),100) from t_receipt_image;
 
@@ -153,7 +155,7 @@ CREATE TABLE IF NOT EXISTS func.t_receipt_image
 --CREATE TYPE account_type_enum AS ENUM ('credit','debit', 'undefined');
 CREATE TABLE IF NOT EXISTS func.t_transaction
 (
-    transaction_id     BIGSERIAL PRIMARY KEY,
+    transaction_id     BIGINT AUTO_INCREMENT PRIMARY KEY,
     account_id         BIGINT                                NOT NULL,
     account_type       TEXT          DEFAULT 'undefined'     NOT NULL,
     transaction_type   TEXT          DEFAULT 'undefined'     NOT NULL,
@@ -169,15 +171,15 @@ CREATE TABLE IF NOT EXISTS func.t_transaction
     active_status      BOOLEAN       DEFAULT TRUE            NOT NULL,
     notes              TEXT          DEFAULT ''              NOT NULL,
     receipt_image_id   BIGINT                                NULL,
-    date_updated       TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    date_added         TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    date_updated       TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_added         TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
     CONSTRAINT transaction_constraint UNIQUE (account_name_owner, transaction_date, description, category, amount,
                                               notes),
     CONSTRAINT t_transaction_description_lowercase_ck CHECK (description = lower(description)),
     CONSTRAINT t_transaction_category_lowercase_ck CHECK (category = lower(category)),
     CONSTRAINT t_transaction_notes_lowercase_ck CHECK (notes = lower(notes)),
-    CONSTRAINT ck_transaction_state CHECK (transaction_state IN ('outstanding', 'future', 'cleared', 'undefined')),
-    CONSTRAINT ck_account_type CHECK (account_type IN ('debit', 'credit', 'undefined')),
+    CONSTRAINT ck_t_transaction_state CHECK (transaction_state IN ('outstanding', 'future', 'cleared', 'undefined')),
+    CONSTRAINT ck_t_transaction_account_type CHECK (account_type IN ('debit', 'credit', 'undefined')),
     CONSTRAINT ck_transaction_type CHECK (transaction_type IN ('expense', 'income', 'transfer', 'undefined')),
     CONSTRAINT ck_reoccurring_type CHECK (reoccurring_type IN
                                           ('annually', 'biannually', 'fortnightly', 'monthly', 'quarterly', 'onetime',
@@ -193,6 +195,25 @@ ALTER TABLE func.t_receipt_image
 ALTER TABLE func.t_receipt_image
     ADD CONSTRAINT fk_transaction FOREIGN KEY (transaction_id) REFERENCES func.t_transaction (transaction_id) ON DELETE CASCADE;
 
+----------------------
+-- PendingTransaction --
+----------------------
+CREATE TABLE IF NOT EXISTS func.t_pending_transaction
+(
+    pending_transaction_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_name_owner     TEXT                              NOT NULL,
+    transaction_date       DATE                              NOT NULL,
+    description            TEXT                              NOT NULL,
+    amount                 NUMERIC(12, 2) DEFAULT 0.00       NOT NULL,
+    review_status          TEXT          DEFAULT 'pending'   NOT NULL,
+    owner                  TEXT                              NULL,
+    date_added             TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    CONSTRAINT fk_pending_account FOREIGN KEY (account_name_owner)
+        REFERENCES func.t_account (account_name_owner) ON UPDATE CASCADE,
+    CONSTRAINT ck_review_status CHECK (review_status IN ('pending', 'approved', 'rejected')),
+    CONSTRAINT unique_pending_transaction_fields UNIQUE (account_name_owner, transaction_date, description, amount)
+);
+
 -- ALTER TABLE t_transaction DROP CONSTRAINT IF EXISTS ck_reoccurring_type;
 -- ALTER TABLE t_transaction DROP CONSTRAINT IF EXISTS fk_receipt_image;
 -- ALTER TABLE t_transaction ADD CONSTRAINT ck_reoccurring_type CHECK (reoccurring_type IN ('annually', 'bi-annually', 'fortnightly', 'monthly', 'quarterly', 'undefined'));
@@ -204,16 +225,17 @@ ALTER TABLE func.t_receipt_image
 -------------
 CREATE TABLE IF NOT EXISTS func.t_payment
 (
-    payment_id         BIGSERIAL PRIMARY KEY,
-    account_name_owner TEXT                                  NOT NULL,
+    payment_id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+    source_account     TEXT                                  NOT NULL,
+    destination_account TEXT                                 NOT NULL,
     transaction_date   DATE                                  NOT NULL,
     amount             NUMERIC(8, 2) DEFAULT 0.00            NOT NULL,
     guid_source        TEXT                                  NOT NULL,
     guid_destination   TEXT                                  NOT NULL,
     active_status      BOOLEAN       DEFAULT TRUE            NOT NULL,
-    date_updated       TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    date_added         TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    CONSTRAINT payment_constraint UNIQUE (account_name_owner, transaction_date, amount),
+    date_updated       TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_added         TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    CONSTRAINT payment_constraint UNIQUE (destination_account, transaction_date, amount),
     CONSTRAINT fk_guid_source FOREIGN KEY (guid_source) REFERENCES func.t_transaction (guid) ON DELETE CASCADE,
     CONSTRAINT fk_guid_destination FOREIGN KEY (guid_destination) REFERENCES func.t_transaction (guid) ON DELETE CASCADE
 );
@@ -226,12 +248,12 @@ CREATE TABLE IF NOT EXISTS func.t_payment
 -------------
 CREATE TABLE IF NOT EXISTS func.t_parameter
 (
-    parameter_id       BIGSERIAL PRIMARY KEY,
+    parameter_id       BIGINT AUTO_INCREMENT PRIMARY KEY,
     parameter_name     TEXT UNIQUE                       NOT NULL,
     parameter_value    TEXT                              NOT NULL,
     active_status BOOLEAN   DEFAULT TRUE            NOT NULL,
-    date_updated  TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    date_added    TIMESTAMP                         NOT NULL DEFAULT TO_TIMESTAMP(0)
+    date_updated  TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_added    TIMESTAMP                         NOT NULL DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S')
 );
 
 -- ALTER TABLE t_parameter ADD COLUMN active_status BOOLEAN NOT NULL DEFAULT TRUE;
@@ -242,72 +264,33 @@ CREATE TABLE IF NOT EXISTS func.t_parameter
 -----------------
 CREATE TABLE IF NOT EXISTS func.t_description
 (
-    description_id BIGSERIAL PRIMARY KEY,
+    description_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     description_name    TEXT UNIQUE                       NOT NULL,
     active_status  BOOLEAN   DEFAULT TRUE            NOT NULL,
-    date_updated   TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    date_added     TIMESTAMP DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    date_updated   TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_added     TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
     CONSTRAINT t_description_description_lowercase_ck CHECK (description_name = lower(description_name))
 );
 
 -- ALTER TABLE t_description ADD COLUMN active_status      BOOLEAN        NOT NULL DEFAULT TRUE;
 
-SELECT setval('func.t_receipt_image_receipt_image_id_seq',
-              (SELECT MAX(receipt_image_id) FROM func.t_receipt_image) + 1);
-SELECT setval('func.t_transaction_transaction_id_seq', (SELECT MAX(transaction_id) FROM func.t_transaction) + 1);
-SELECT setval('func.t_payment_payment_id_seq', (SELECT MAX(payment_id) FROM func.t_payment) + 1);
-SELECT setval('func.t_account_account_id_seq', (SELECT MAX(account_id) FROM func.t_account) + 1);
-SELECT setval('func.t_category_category_id_seq', (SELECT MAX(category_id) FROM func.t_category) + 1);
-SELECT setval('func.t_description_description_id_seq', (SELECT MAX(description_id) FROM func.t_description) + 1);
-SELECT setval('func.t_parameter_parameter_id_seq', (SELECT MAX(parameter_id) FROM func.t_parameter) + 1);
-SELECT setval('func.t_validation_amount_validation_id_seq', (SELECT MAX(validation_id) FROM func.t_validation_amount) + 1);
+-------------
+-- Transfer --
+-------------
+CREATE TABLE IF NOT EXISTS func.t_transfer
+(
+    transfer_id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+    source_account      TEXT                                  NOT NULL,
+    destination_account TEXT                                  NOT NULL,
+    transaction_date    DATE                                  NOT NULL,
+    amount              NUMERIC(8, 2) DEFAULT 0.00            NOT NULL,
+    guid_source         TEXT                                  NULL,
+    guid_destination    TEXT                                  NULL,
+    active_status       BOOLEAN       DEFAULT TRUE            NOT NULL,
+    date_updated        TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    date_added          TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    CONSTRAINT transfer_constraint UNIQUE (source_account, destination_account, transaction_date, amount)
+);
 
-CREATE OR REPLACE FUNCTION fn_update_transaction_categories()
-    RETURNS TRIGGER
-    SET SCHEMA 'func'
-    LANGUAGE PLPGSQL
-AS
-$$
-    BEGIN
-      NEW.date_updated := CURRENT_TIMESTAMP;
-      RETURN NEW;
-    END;
-
-
-$$;
-
-CREATE OR REPLACE FUNCTION fn_insert_transaction_categories()
-    RETURNS TRIGGER
-    SET SCHEMA 'func'
-    LANGUAGE PLPGSQL
-AS
-$$
-    BEGIN
-      NEW.date_updated := CURRENT_TIMESTAMP;
-      NEW.date_added := CURRENT_TIMESTAMP;
-      RETURN NEW;
-    END;
-
-
-$$;
-
-DROP TRIGGER IF EXISTS tr_insert_transaction_categories ON func.t_transaction_categories;
-CREATE TRIGGER tr_insert_transaction_categories
-    BEFORE INSERT
-    ON func.t_transaction_categories
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_insert_transaction_categories();
-
-DROP TRIGGER IF EXISTS tr_update_transaction_categories ON func.t_transaction_categories;
-CREATE TRIGGER tr_update_transaction_categories
-    BEFORE UPDATE
-    ON func.t_transaction_categories
-    FOR EACH ROW
-EXECUTE PROCEDURE fn_update_transaction_categories();
-
-COMMIT;
--- check for locks
--- SELECT pid, usename, pg_blocking_pids(pid) as blocked_by, query as blocked_query from pg_stat_activity where cardinality(pg_blocking_pids(pid)) > 0;
-
---select * from t_transaction where transaction_state = 'cleared' and transaction_date > now();
---select * from t_transaction where transaction_state in ('future', 'outstanding') and transaction_date < now();
+-- H2 manages sequences automatically for AUTO_INCREMENT columns
+-- PostgreSQL functions and triggers removed - not needed for H2 functional tests

@@ -246,6 +246,7 @@ CREATE TABLE IF NOT EXISTS public.t_pending_transaction
 CREATE TABLE IF NOT EXISTS public.t_payment
 (
     payment_id           BIGSERIAL PRIMARY KEY,
+    account_name_owner   TEXT                                  NOT NULL,
     source_account       TEXT                                  NOT NULL,
     destination_account  TEXT                                  NOT NULL,
     transaction_date     DATE                                  NOT NULL,
@@ -256,11 +257,10 @@ CREATE TABLE IF NOT EXISTS public.t_payment
     active_status        BOOLEAN       DEFAULT TRUE            NOT NULL,
     date_updated         TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
     date_added           TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
-    CONSTRAINT payment_constraint UNIQUE (source_account, destination_account, transaction_date, amount),
+    CONSTRAINT payment_constraint UNIQUE (account_name_owner, transaction_date, amount),
     CONSTRAINT fk_payment_guid_source FOREIGN KEY (guid_source) REFERENCES public.t_transaction (guid) ON UPDATE CASCADE,
     CONSTRAINT fk_payment_guid_destination FOREIGN KEY (guid_destination) REFERENCES public.t_transaction (guid) ON UPDATE CASCADE,
-    CONSTRAINT fk_source_account FOREIGN KEY (source_account) REFERENCES public.t_account (account_name_owner) ON UPDATE CASCADE,
-    CONSTRAINT fk_destination_account FOREIGN KEY (destination_account) REFERENCES public.t_account (account_name_owner) ON UPDATE CASCADE
+    CONSTRAINT fk_account_name_owner FOREIGN KEY (account_name_owner) REFERENCES public.t_account (account_name_owner) ON UPDATE CASCADE
 );
 
 --------------
@@ -405,3 +405,92 @@ COMMIT;
 
 --SELECT * from t_transaction where transaction_state = 'cleared' and transaction_date > now();
 --SELECT * from t_transaction where transaction_state in ('future', 'outstanding') and transaction_date < now();
+-- Performance indexes for production database (transactional part)
+-- Migration: V02__add-performance-indexes.sql
+-- Purpose: Add critical indexes to improve query performance for financial data operations
+-- Note: Concurrent index creation moved to V03 migration
+
+SET client_min_messages TO WARNING;
+
+-- ================================
+-- NON-CONCURRENT INDEXES (TRANSACTIONAL)
+-- ================================
+
+-- Note: All indexes will be created with CONCURRENTLY in V03 migration
+-- This migration creates the foundation for index tracking-- Drop payment_constraint from t_payment table
+-- This constraint ensures uniqueness based on account_name_owner, transaction_date, and amount
+-- Removing this to allow duplicate payments with same details
+
+ALTER TABLE public.t_payment DROP CONSTRAINT payment_constraint;-- Remove obsolete account_name_owner column from t_payment
+-- and enforce integrity using source_account and destination_account instead.
+
+BEGIN;
+
+-- 1) Backfill destination_account from account_name_owner where needed
+UPDATE public.t_payment p
+SET destination_account = p.account_name_owner
+WHERE (p.destination_account IS NULL OR btrim(p.destination_account) = '')
+  AND p.account_name_owner IS NOT NULL;
+
+-- 2) Normalize destination/source to lowercase
+UPDATE public.t_payment p SET destination_account = lower(p.destination_account) WHERE p.destination_account IS NOT NULL;
+UPDATE public.t_payment p SET source_account = lower(p.source_account) WHERE p.source_account IS NOT NULL;
+
+-- 3) Normalize hyphens to underscores if that makes them match an existing account
+UPDATE public.t_payment p
+SET destination_account = REPLACE(p.destination_account, '-', '_')
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.t_account a WHERE a.account_name_owner = p.destination_account
+)
+AND EXISTS (
+    SELECT 1 FROM public.t_account a WHERE a.account_name_owner = REPLACE(p.destination_account, '-', '_')
+);
+
+UPDATE public.t_payment p
+SET source_account = REPLACE(p.source_account, '-', '_')
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.t_account a WHERE a.account_name_owner = p.source_account
+)
+AND EXISTS (
+    SELECT 1 FROM public.t_account a WHERE a.account_name_owner = REPLACE(p.source_account, '-', '_')
+);
+
+-- Add FKs for source_account and destination_account to t_account(account_name_owner)
+-- 4) Add new FKs as NOT VALID first, then validate after data cleanup
+ALTER TABLE public.t_payment
+    ADD CONSTRAINT fk_payment_source_account FOREIGN KEY (source_account)
+        REFERENCES public.t_account (account_name_owner) ON UPDATE CASCADE NOT VALID;
+
+ALTER TABLE public.t_payment
+    ADD CONSTRAINT fk_payment_destination_account FOREIGN KEY (destination_account)
+        REFERENCES public.t_account (account_name_owner) ON UPDATE CASCADE NOT VALID;
+
+-- Validate constraints (will check all existing rows)
+ALTER TABLE public.t_payment VALIDATE CONSTRAINT fk_payment_source_account;
+ALTER TABLE public.t_payment VALIDATE CONSTRAINT fk_payment_destination_account;
+
+-- Add a new unique constraint to prevent duplicate payments per destination account/date/amount
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'payment_constraint_destination'
+    ) THEN
+        ALTER TABLE public.t_payment
+            ADD CONSTRAINT payment_constraint_destination UNIQUE (destination_account, transaction_date, amount);
+    END IF;
+END $$;
+
+-- 6) Drop old FK and column only after new constraints are in place
+ALTER TABLE public.t_payment
+    DROP CONSTRAINT IF EXISTS fk_account_name_owner;
+
+ALTER TABLE public.t_payment
+    DROP COLUMN IF EXISTS account_name_owner;
+
+COMMIT;
+-- Drop obsolete foreign key on t_payment(account_name_owner)
+-- Safe even if already removed
+
+ALTER TABLE public.t_payment
+    DROP CONSTRAINT IF EXISTS fk_account_name_owner;
+
