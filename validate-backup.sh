@@ -306,12 +306,12 @@ log_info "Table accessibility: $accessible_tables/$total_expected_tables tables 
 # Get row counts for validation
 log_info "Collecting table row counts for validation..."
 row_counts_query="
-SELECT 
+SELECT
     'Transactions' as table_name, COUNT(*) as row_count FROM t_transaction
 UNION ALL
 SELECT 'Accounts', COUNT(*) FROM t_account
 UNION ALL
-SELECT 'Categories', COUNT(*) FROM t_category  
+SELECT 'Categories', COUNT(*) FROM t_category
 UNION ALL
 SELECT 'Descriptions', COUNT(*) FROM t_description
 UNION ALL
@@ -344,8 +344,8 @@ log_info "Performing basic data consistency checks..."
 # Check for orphaned transaction categories
 log_info "Checking for orphaned transaction categories..."
 orphaned_categories=$(psql -h "$server" -p "$port" -U "$username" -d "$temp_db" -t -c "
-    SELECT COUNT(*) FROM t_transaction_categories tc 
-    LEFT JOIN t_transaction t ON tc.transaction_id = t.transaction_id 
+    SELECT COUNT(*) FROM t_transaction_categories tc
+    LEFT JOIN t_transaction t ON tc.transaction_id = t.transaction_id
     WHERE t.transaction_id IS NULL;
 " 2>/dev/null | tr -d ' ')
 
@@ -358,8 +358,8 @@ fi
 # Check for orphaned receipt images
 log_info "Checking for orphaned receipt images..."
 orphaned_receipts=$(psql -h "$server" -p "$port" -U "$username" -d "$temp_db" -t -c "
-    SELECT COUNT(*) FROM t_receipt_image r 
-    LEFT JOIN t_transaction t ON r.transaction_id = t.transaction_id 
+    SELECT COUNT(*) FROM t_receipt_image r
+    LEFT JOIN t_transaction t ON r.transaction_id = t.transaction_id
     WHERE t.transaction_id IS NULL;
 " 2>/dev/null | tr -d ' ')
 
@@ -372,7 +372,7 @@ fi
 # Check date ranges to ensure data makes sense
 log_info "Checking transaction date ranges..."
 date_range_result=$(psql -h "$server" -p "$port" -U "$username" -d "$temp_db" -t -c "
-    SELECT 
+    SELECT
         MIN(transaction_date) as earliest_date,
         MAX(transaction_date) as latest_date,
         COUNT(*) as total_transactions
