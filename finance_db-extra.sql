@@ -165,7 +165,7 @@ FROM t_transaction where transaction_type='income' and transaction_date > '2022-
 GROUP BY DATE_TRUNC('month',transaction_date)) A,
 (SELECT DATE_TRUNC('month',transaction_date) AS to_month, sum(abs(amount)) as to_sum
 FROM t_transaction where transaction_type='expense' and transaction_date > '2022-01-01'
-GROUP BY DATE_TRUNC('month',transaction_date)) B 
+GROUP BY DATE_TRUNC('month',transaction_date)) B
 where A.to_month = B.to_month order by a.to_month;
 ```
 

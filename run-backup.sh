@@ -27,24 +27,24 @@ execute_cmd() {
     local cmd="$1"
     local description="$2"
     local allow_warnings="${3:-false}"
-    
+
     log_msg "Starting: $description"
     log_msg "Command: $cmd"
-    
+
     # Capture both stdout and stderr
     local output
     local cmd_exit_code
-    
+
     if [ "$allow_warnings" = "true" ]; then
         # For database operations, capture output and filter warnings
         output=$(eval "$cmd" 2>&1)
         cmd_exit_code=$?
-        
+
         # Log warnings but don't treat them as errors
         if echo "$output" | grep -q "WARNING\|NOTICE"; then
             log_msg "Warnings/notices (non-fatal): $(echo "$output" | grep 'WARNING\|NOTICE' | head -3)"
         fi
-        
+
         # Check for actual errors
         if [ $cmd_exit_code -eq 0 ]; then
             log_msg "SUCCESS: $description completed"
@@ -73,7 +73,7 @@ cleanup_on_failure() {
     rm -f "finance_db-${version}-${date}.tar" 2>/dev/null
     rm -f "finance_fresh_db-${version}-${date}.tar" 2>/dev/null
     rm -f t_*.csv 2>/dev/null
-    log_msg "Cleanup completed"
+    log_msg "Cleanup completed (includes all CSV files: description, account, category, validation_amount, parameter, transaction, pending_transaction, transaction_categories, payment, transfer, receipt_image, medical_provider, family_member)"
 }
 
 # Check if file exists and has content
@@ -99,9 +99,9 @@ test_db_connection() {
     local test_server="$1"
     local test_port="$2"
     local test_user="$3"
-    
+
     log_msg "Testing database connectivity to ${test_server}:${test_port}"
-    
+
     if ! psql -h "$test_server" -p "$test_port" -U "$test_user" -d finance_db -c "SELECT 1;" >/dev/null 2>&1; then
         log_error "Cannot connect to database at ${test_server}:${test_port} with user ${test_user}"
         log_error "Please check: 1) Server is running 2) Network connectivity 3) Credentials in ~/.pgpass"
@@ -210,8 +210,15 @@ if ! check_file "finance_db-${version}-${date}.tar"; then
     exit 4
 fi
 
-# Create fresh database on localhost (warnings are non-fatal)
-if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' postgres < finance_fresh_db-create.sql" "Create finance_fresh_db on localhost" "true"; then
+# Drop and recreate fresh database on localhost to ensure clean schema (warnings are non-fatal)
+log_msg "Ensuring clean finance_fresh_db database with latest schema..."
+if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' postgres -c 'DROP DATABASE IF EXISTS finance_fresh_db;'" "Drop existing finance_fresh_db" "true"; then
+    cleanup_on_failure
+    exit 5
+fi
+
+# Create fresh database with complete schema from finance_fresh_db-create.sql (warnings are non-fatal)
+if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' postgres < finance_fresh_db-create.sql" "Create finance_fresh_db with complete schema" "true"; then
     cleanup_on_failure
     exit 5
 fi
@@ -221,6 +228,62 @@ if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' -d finance_fre
     log_error "finance_fresh_db was not created successfully"
     cleanup_on_failure
     exit 5
+fi
+
+# Verify new tables exist before attempting data import
+log_msg "Verifying new medical expense tables exist in fresh database..."
+
+# First check what tables exist in the database
+log_msg "Listing all tables in finance_fresh_db database:"
+execute_cmd "psql -h localhost -p '${port}' -U '${username}' -d finance_fresh_db -c \"\\dt public.t_*\"" "List all tables in finance_fresh_db" "true"
+
+# Check specifically for medical tables
+log_msg "Checking for t_medical_provider table..."
+if psql -h localhost -p "${port}" -U "${username}" -d finance_fresh_db -c "SELECT 1 FROM t_medical_provider LIMIT 1;" >/dev/null 2>&1; then
+    log_msg "✅ t_medical_provider table exists and accessible"
+else
+    log_error "❌ t_medical_provider table does not exist or is not accessible"
+
+    # Try to see what the error is
+    log_msg "Attempting to diagnose t_medical_provider table issue..."
+    psql -h localhost -p "${port}" -U "${username}" -d finance_fresh_db -c "SELECT 1 FROM t_medical_provider LIMIT 1;" 2>&1 | tee -a "$log_file" || true
+fi
+
+log_msg "Checking for t_family_member table..."
+if psql -h localhost -p "${port}" -U "${username}" -d finance_fresh_db -c "SELECT 1 FROM t_family_member LIMIT 1;" >/dev/null 2>&1; then
+    log_msg "✅ t_family_member table exists and accessible"
+else
+    log_error "❌ t_family_member table does not exist or is not accessible"
+
+    # Try to see what the error is
+    log_msg "Attempting to diagnose t_family_member table issue..."
+    psql -h localhost -p "${port}" -U "${username}" -d finance_fresh_db -c "SELECT 1 FROM t_family_member LIMIT 1;" 2>&1 | tee -a "$log_file" || true
+fi
+
+# Check if both tables exist, if not, let's see what went wrong with schema creation
+if ! psql -h localhost -p "${port}" -U "${username}" -d finance_fresh_db -c "SELECT 1 FROM t_medical_provider LIMIT 1; SELECT 1 FROM t_family_member LIMIT 1;" >/dev/null 2>&1; then
+    log_error "One or both medical expense tables do not exist in finance_fresh_db"
+    log_msg "Checking if there were errors during schema creation..."
+
+    # Check if finance_fresh_db-create.sql file exists and is readable
+    if [ ! -f "finance_fresh_db-create.sql" ]; then
+        log_error "finance_fresh_db-create.sql file not found in current directory"
+    else
+        log_msg "finance_fresh_db-create.sql file exists ($(wc -l < finance_fresh_db-create.sql) lines)"
+
+        # Show the last part of the schema file where medical tables should be
+        log_msg "Checking for medical table definitions in schema file..."
+        if grep -q "t_medical_provider\|t_family_member" finance_fresh_db-create.sql; then
+            log_msg "✅ Medical table definitions found in schema file"
+        else
+            log_error "❌ Medical table definitions NOT found in schema file"
+        fi
+    fi
+
+    cleanup_on_failure
+    exit 5
+else
+    log_msg "✅ Both medical expense tables verified successfully"
 fi
 
 log_msg "Starting table data export and import process"
@@ -356,10 +419,81 @@ if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' finance_fresh_
     exit 6
 fi
 
+# Export and import medical_provider table (Phase 1 - Medical Provider Entity)
+# Check if source table exists before attempting export
+log_msg "Checking if t_medical_provider table exists in source database..."
+if psql -h "${server}" -p "${port}" -U "${username}" finance_db -c "SELECT 1 FROM t_medical_provider LIMIT 1;" >/dev/null 2>&1; then
+    log_msg "t_medical_provider table found in source database, proceeding with export..."
+    if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT provider_id, provider_name, provider_type, specialty, npi, tax_id, address_line1, address_line2, city, state, zip_code, country, phone, fax, email, website, network_status, billing_name, notes, active_status, date_added, date_updated from t_medical_provider ORDER BY provider_id) TO 't_medical_provider.csv' CSV HEADER\"" "Export t_medical_provider table"; then
+        cleanup_on_failure
+        exit 6
+    fi
+    if ! check_file "t_medical_provider.csv"; then cleanup_on_failure; exit 6; fi
+    # Truncate medical provider table to avoid primary key conflicts with seed data
+    if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' finance_fresh_db -c \"TRUNCATE TABLE t_medical_provider CASCADE; commit\"" "Truncate t_medical_provider table"; then
+        cleanup_on_failure
+        exit 6
+    fi
+    if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' finance_fresh_db -c \"\\copy t_medical_provider FROM 't_medical_provider.csv' CSV HEADER; commit\"" "Import t_medical_provider table"; then
+        cleanup_on_failure
+        exit 6
+    fi
+else
+    log_msg "t_medical_provider table not found in source database - creating empty CSV file..."
+    echo "provider_id,provider_name,provider_type,specialty,npi,tax_id,address_line1,address_line2,city,state,zip_code,country,phone,fax,email,website,network_status,billing_name,notes,active_status,date_added,date_updated" > t_medical_provider.csv
+    log_msg "Empty t_medical_provider.csv created (table will use default seed data from schema)"
+fi
+
+# Export and import family_member table (Phase 1.5 - Family Member Entity)
+# Check if source table exists before attempting export
+log_msg "Checking if t_family_member table exists in source database..."
+if psql -h "${server}" -p "${port}" -U "${username}" finance_db -c "SELECT 1 FROM t_family_member LIMIT 1;" >/dev/null 2>&1; then
+    log_msg "t_family_member table found in source database, proceeding with export..."
+    if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT family_member_id, owner, member_name, relationship, date_of_birth, insurance_member_id, ssn_last_four, medical_record_number, active_status, date_added, date_updated from t_family_member ORDER BY family_member_id) TO 't_family_member.csv' CSV HEADER\"" "Export t_family_member table"; then
+        cleanup_on_failure
+        exit 6
+    fi
+    if ! check_file "t_family_member.csv"; then cleanup_on_failure; exit 6; fi
+    # Truncate family member table to avoid primary key conflicts with seed data
+    if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' finance_fresh_db -c \"TRUNCATE TABLE t_family_member CASCADE; commit\"" "Truncate t_family_member table"; then
+        cleanup_on_failure
+        exit 6
+    fi
+    if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' finance_fresh_db -c \"\\copy t_family_member FROM 't_family_member.csv' CSV HEADER; commit\"" "Import t_family_member table"; then
+        cleanup_on_failure
+        exit 6
+    fi
+else
+    log_msg "t_family_member table not found in source database - creating empty CSV file..."
+    echo "family_member_id,owner,member_name,relationship,date_of_birth,insurance_member_id,ssn_last_four,medical_record_number,active_status,date_added,date_updated" > t_family_member.csv
+    log_msg "Empty t_family_member.csv created (table will use default seed data from schema)"
+fi
+
 # Add foreign key constraint back
 if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' finance_fresh_db -c \"alter table t_transaction add CONSTRAINT fk_receipt_image FOREIGN KEY (receipt_image_id) REFERENCES t_receipt_image (receipt_image_id) ON DELETE CASCADE; commit\"" "Add fk_receipt_image constraint"; then
     cleanup_on_failure
     exit 6
+fi
+
+# Reset sequences for all tables including new medical expense tables
+log_msg "Resetting database sequences to match imported data..."
+if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' finance_fresh_db -c \"
+SELECT setval('public.t_receipt_image_receipt_image_id_seq', COALESCE((SELECT MAX(receipt_image_id) FROM public.t_receipt_image), 1));
+SELECT setval('public.t_transaction_transaction_id_seq', COALESCE((SELECT MAX(transaction_id) FROM public.t_transaction), 1));
+SELECT setval('public.t_payment_payment_id_seq', COALESCE((SELECT MAX(payment_id) FROM public.t_payment), 1));
+SELECT setval('public.t_account_account_id_seq', COALESCE((SELECT MAX(account_id) FROM public.t_account), 1));
+SELECT setval('public.t_category_category_id_seq', COALESCE((SELECT MAX(category_id) FROM public.t_category), 1));
+SELECT setval('public.t_description_description_id_seq', COALESCE((SELECT MAX(description_id) FROM public.t_description), 1));
+SELECT setval('public.t_parameter_parameter_id_seq', COALESCE((SELECT MAX(parameter_id) FROM public.t_parameter), 1));
+SELECT setval('public.t_validation_amount_validation_id_seq', COALESCE((SELECT MAX(validation_id) FROM public.t_validation_amount), 1));
+SELECT setval('public.t_transfer_transfer_id_seq', COALESCE((SELECT MAX(transfer_id) FROM public.t_transfer), 1));
+SELECT setval('public.t_pending_transaction_pending_transaction_id_seq', COALESCE((SELECT MAX(pending_transaction_id) FROM public.t_pending_transaction), 1));
+SELECT setval('public.t_medical_provider_provider_id_seq', COALESCE((SELECT MAX(provider_id) FROM public.t_medical_provider), 1));
+SELECT setval('public.t_family_member_family_member_id_seq', COALESCE((SELECT MAX(family_member_id) FROM public.t_family_member), 1));
+commit;\"" "Reset all database sequences" "true"; then
+    log_msg "Warning: Sequence reset completed with warnings (non-fatal)"
+else
+    log_msg "Successfully reset all database sequences"
 fi
 
 # Create final dump of fresh database
@@ -386,7 +520,7 @@ log_msg "Backup process completed"
 log_msg "Files created:"
 log_msg "  - finance_db-${version}-${date}.tar ($(ls -lh "finance_db-${version}-${date}.tar" | awk '{print $5}'))"
 log_msg "  - finance_fresh_db-${version}-${date}.tar ($(ls -lh "finance_fresh_db-${version}-${date}.tar" | awk '{print $5}'))"
-log_msg "CSV files exported: $(ls -1 t_*.csv | wc -l) files"
+log_msg "CSV files exported: $(ls -1 t_*.csv 2>/dev/null | wc -l) files (includes new medical_provider and family_member tables)"
 
 if [ $exit_code -eq 0 ]; then
     log_msg "SUCCESS: All backup operations completed successfully"

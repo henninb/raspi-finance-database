@@ -84,7 +84,7 @@ for migration_file in $(ls "$migration_dir"/V*.sql | grep -v '.disabled$' | sort
     cat "$migration_file" >> finance_db-create.sql
 done
 
-cat /tmp/sql-test > finance_test_db-create.sql  
+cat /tmp/sql-test > finance_test_db-create.sql
 for migration_file in $(ls "$migration_dir"/V*.sql | grep -v '.disabled$' | sort -V); do
     cat "$migration_file" >> finance_test_db-create.sql
 done

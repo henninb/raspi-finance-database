@@ -494,3 +494,171 @@ COMMIT;
 ALTER TABLE public.t_payment
     DROP CONSTRAINT IF EXISTS fk_account_name_owner;
 
+-- V07: Extend AccountType enum with comprehensive account types
+-- Add support for medical, financial, investment, and utility account types
+
+-- Drop existing constraint
+ALTER TABLE public.t_account
+DROP CONSTRAINT IF EXISTS ck_account_type;
+
+-- Add new comprehensive account type constraint
+ALTER TABLE public.t_account
+ADD CONSTRAINT ck_account_type
+CHECK (account_type IN (
+    -- Existing types (preserve compatibility)
+    'credit', 'debit', 'undefined',
+
+    -- Banking/Traditional Accounts
+    'checking', 'savings', 'credit_card', 'certificate', 'money_market',
+
+    -- Investment Accounts
+    'brokerage', 'retirement_401k', 'retirement_ira', 'retirement_roth', 'pension',
+
+    -- Medical/Healthcare Accounts
+    'hsa', 'fsa', 'medical_savings',
+
+    -- Loan/Debt Accounts
+    'mortgage', 'auto_loan', 'student_loan', 'personal_loan', 'line_of_credit',
+
+    -- Utility/Service Accounts
+    'utility', 'prepaid', 'gift_card',
+
+    -- Business Accounts
+    'business_checking', 'business_savings', 'business_credit',
+
+    -- Other/Miscellaneous
+    'cash', 'escrow', 'trust'
+));
+
+-- Ensure lowercase constraint still exists
+ALTER TABLE public.t_account
+DROP CONSTRAINT IF EXISTS ck_account_type_lowercase;
+
+ALTER TABLE public.t_account
+ADD CONSTRAINT ck_account_type_lowercase
+CHECK (account_type = lower(account_type));
+
+-- Add index for performance on account_type queries
+CREATE INDEX IF NOT EXISTS idx_account_type ON public.t_account(account_type);
+
+-- Add index for account category queries (will be useful for reporting)
+-- This will support future category-based filtering
+CREATE INDEX IF NOT EXISTS idx_account_active_type ON public.t_account(active_status, account_type)
+WHERE active_status = true;-- V08: Create Medical Provider table
+-- Medical provider information for healthcare expense tracking
+
+CREATE TABLE IF NOT EXISTS public.t_medical_provider (
+    provider_id         BIGSERIAL PRIMARY KEY,
+    provider_name       TEXT NOT NULL,
+    provider_type       TEXT NOT NULL DEFAULT 'general',
+    specialty           TEXT,
+    npi                 TEXT UNIQUE, -- National Provider Identifier
+    tax_id              TEXT, -- Tax ID/EIN for business providers
+
+    -- Address information
+    address_line1       TEXT,
+    address_line2       TEXT,
+    city               TEXT,
+    state              TEXT,
+    zip_code           TEXT,
+    country            TEXT DEFAULT 'US',
+
+    -- Contact information
+    phone              TEXT,
+    fax                TEXT,
+    email              TEXT,
+    website            TEXT,
+
+    -- Provider details
+    network_status     TEXT DEFAULT 'unknown', -- in_network, out_of_network, unknown
+    billing_name       TEXT, -- Name used for billing/claims
+    notes              TEXT,
+
+    -- Audit and status fields
+    active_status      BOOLEAN DEFAULT TRUE NOT NULL,
+    date_added         TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    date_updated       TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+
+    -- Constraints
+    CONSTRAINT ck_provider_type CHECK (provider_type IN (
+        'general', 'specialist', 'hospital', 'pharmacy', 'laboratory',
+        'imaging', 'urgent_care', 'emergency', 'mental_health', 'dental',
+        'vision', 'physical_therapy', 'other'
+    )),
+    CONSTRAINT ck_network_status CHECK (network_status IN (
+        'in_network', 'out_of_network', 'unknown'
+    )),
+    CONSTRAINT ck_provider_name_lowercase CHECK (provider_name = lower(provider_name)),
+    CONSTRAINT ck_provider_name_not_empty CHECK (length(trim(provider_name)) > 0),
+    CONSTRAINT ck_npi_format CHECK (npi IS NULL OR (npi ~ '^[0-9]{10}$')), -- NPI is 10 digits
+    CONSTRAINT ck_zip_code_format CHECK (zip_code IS NULL OR (zip_code ~ '^[0-9]{5}(-[0-9]{4})?$')),
+    CONSTRAINT ck_phone_format CHECK (phone IS NULL OR (length(phone) >= 10))
+);
+
+-- Indexes for performance
+CREATE INDEX idx_medical_provider_name ON public.t_medical_provider(provider_name);
+CREATE INDEX idx_medical_provider_type ON public.t_medical_provider(provider_type);
+CREATE INDEX idx_medical_provider_specialty ON public.t_medical_provider(specialty) WHERE specialty IS NOT NULL;
+CREATE INDEX idx_medical_provider_npi ON public.t_medical_provider(npi) WHERE npi IS NOT NULL;
+CREATE INDEX idx_medical_provider_active ON public.t_medical_provider(active_status, provider_name) WHERE active_status = true;
+CREATE INDEX idx_medical_provider_network ON public.t_medical_provider(network_status, provider_type);
+CREATE INDEX idx_medical_provider_location ON public.t_medical_provider(state, city) WHERE state IS NOT NULL AND city IS NOT NULL;
+
+-- Insert common medical provider types for initial data
+INSERT INTO public.t_medical_provider (provider_name, provider_type, specialty, network_status) VALUES
+('unknown_provider', 'general', NULL, 'unknown'),
+('pharmacy_generic', 'pharmacy', 'retail_pharmacy', 'unknown'),
+('urgent_care_generic', 'urgent_care', NULL, 'unknown'),
+('hospital_generic', 'hospital', NULL, 'unknown'),
+('laboratory_generic', 'laboratory', 'general_lab', 'unknown');-- V09: Create Family Member table
+-- Family member tracking for medical expense attribution
+
+CREATE TABLE IF NOT EXISTS public.t_family_member (
+    family_member_id    BIGSERIAL PRIMARY KEY,
+    owner               TEXT NOT NULL,
+    member_name         TEXT NOT NULL,
+    relationship        TEXT NOT NULL DEFAULT 'self',
+    date_of_birth       DATE,
+    insurance_member_id TEXT,
+
+    -- Medical identifiers
+    ssn_last_four      TEXT,
+    medical_record_number TEXT,
+
+    -- Audit and status fields
+    active_status      BOOLEAN DEFAULT TRUE NOT NULL,
+    date_added         TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    date_updated       TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+
+    -- Constraints
+    CONSTRAINT ck_family_relationship CHECK (relationship IN (
+        'self', 'spouse', 'child', 'dependent', 'other'
+    )),
+    CONSTRAINT ck_family_member_name_lowercase CHECK (member_name = lower(member_name)),
+    CONSTRAINT ck_family_owner_lowercase CHECK (owner = lower(owner)),
+    CONSTRAINT ck_family_member_name_not_empty CHECK (length(trim(member_name)) > 0),
+    CONSTRAINT ck_family_owner_not_empty CHECK (length(trim(owner)) > 0),
+    CONSTRAINT ck_ssn_last_four_format CHECK (ssn_last_four IS NULL OR (ssn_last_four ~ '^[0-9]{4}$')),
+    CONSTRAINT ck_insurance_member_id_length CHECK (insurance_member_id IS NULL OR length(insurance_member_id) <= 50),
+    CONSTRAINT ck_medical_record_number_length CHECK (medical_record_number IS NULL OR length(medical_record_number) <= 50)
+);
+
+-- Unique constraint for owner + member_name combination
+ALTER TABLE public.t_family_member
+ADD CONSTRAINT uk_family_member_owner_name UNIQUE (owner, member_name);
+
+-- Indexes for performance
+CREATE INDEX idx_family_member_owner ON public.t_family_member(owner);
+CREATE INDEX idx_family_member_relationship ON public.t_family_member(owner, relationship);
+CREATE INDEX idx_family_member_active ON public.t_family_member(active_status, owner) WHERE active_status = true;
+CREATE INDEX idx_family_member_insurance ON public.t_family_member(insurance_member_id) WHERE insurance_member_id IS NOT NULL;
+
+-- Insert default family member for existing owners (self)
+-- This ensures existing medical expenses can be attributed to the primary account holder
+INSERT INTO public.t_family_member (owner, member_name, relationship)
+SELECT DISTINCT account_name_owner, account_name_owner, 'self'
+FROM public.t_account
+WHERE active_status = true
+AND account_name_owner NOT IN (
+    SELECT owner FROM public.t_family_member WHERE relationship = 'self'
+);
