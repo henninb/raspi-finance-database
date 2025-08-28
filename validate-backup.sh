@@ -6,7 +6,7 @@
 # Global variables
 date=$(date '+%Y-%m-%d')
 port=5432
-version=v17-1
+version=v17-6
 username=henninb
 script_name="$(basename "$0")"
 log_file="backup-validation-${date}.log"
