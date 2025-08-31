@@ -230,6 +230,26 @@ if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' -d finance_fre
     exit 5
 fi
 
+# Apply V11 migration to ensure schema is up to date
+log_msg "Applying V11 migration to ensure fresh database has current schema..."
+if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' -d finance_fresh_db -c \"
+BEGIN;
+ALTER TABLE public.t_medical_expense ALTER COLUMN transaction_id DROP NOT NULL;
+ALTER TABLE public.t_medical_expense ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(12,2) DEFAULT 0.00 NOT NULL;
+DO \\\$\\\$ BEGIN
+    ALTER TABLE public.t_medical_expense ADD CONSTRAINT ck_paid_amount_non_negative CHECK (paid_amount >= 0);
+EXCEPTION
+    WHEN duplicate_object THEN
+        -- Constraint already exists, ignore
+        NULL;
+END \\\$\\\$;
+UPDATE public.t_medical_expense SET paid_amount = patient_responsibility WHERE transaction_id IS NOT NULL;
+COMMIT;\"" "Apply V11 migration to fresh database" "true"; then
+    log_error "Failed to apply V11 migration to fresh database"
+    cleanup_on_failure
+    exit 5
+fi
+
 # Verify new tables exist in fresh database (non-fatal verification)
 log_msg "Verifying new medical expense tables exist in fresh database..."
 
@@ -469,7 +489,7 @@ fi
 log_msg "Checking if t_medical_expense table exists in source database..."
 if psql -h "${server}" -p "${port}" -U "${username}" finance_db -c "SELECT 1 FROM t_medical_expense LIMIT 1;" >/dev/null 2>&1; then
     log_msg "t_medical_expense table found in source database, proceeding with export..."
-    if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT medical_expense_id, transaction_id, provider_id, family_member_id, service_date, service_description, procedure_code, diagnosis_code, billed_amount, insurance_discount, insurance_paid, patient_responsibility, paid_date, is_out_of_network, claim_number, claim_status, active_status, date_added, date_updated from t_medical_expense ORDER BY medical_expense_id) TO 't_medical_expense.csv' CSV HEADER\"" "Export t_medical_expense table"; then
+    if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT medical_expense_id, transaction_id, provider_id, family_member_id, service_date, service_description, procedure_code, diagnosis_code, billed_amount, insurance_discount, insurance_paid, patient_responsibility, paid_date, is_out_of_network, claim_number, claim_status, active_status, date_added, date_updated, paid_amount from t_medical_expense ORDER BY medical_expense_id) TO 't_medical_expense.csv' CSV HEADER\"" "Export t_medical_expense table"; then
         cleanup_on_failure
         exit 6
     fi
@@ -480,7 +500,7 @@ if psql -h "${server}" -p "${port}" -U "${username}" finance_db -c "SELECT 1 FRO
     fi
 else
     log_msg "t_medical_expense table not found in source database - creating empty CSV file..."
-    echo "medical_expense_id,transaction_id,provider_id,family_member_id,service_date,service_description,procedure_code,diagnosis_code,billed_amount,insurance_discount,insurance_paid,patient_responsibility,paid_date,is_out_of_network,claim_number,claim_status,active_status,date_added,date_updated" > t_medical_expense.csv
+    echo "medical_expense_id,transaction_id,provider_id,family_member_id,service_date,service_description,procedure_code,diagnosis_code,billed_amount,insurance_discount,insurance_paid,patient_responsibility,paid_date,is_out_of_network,claim_number,claim_status,active_status,date_added,date_updated,paid_amount" > t_medical_expense.csv
     log_msg "Empty t_medical_expense.csv created (table will use default data from schema)"
 fi
 
