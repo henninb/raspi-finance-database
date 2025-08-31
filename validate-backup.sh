@@ -126,7 +126,7 @@ log_info "Temporary database name: $temp_db"
 if [ $# -lt 1 ] || [ $# -gt 4 ]; then
     log_error "Invalid number of arguments"
     echo "Usage: $0 <backup-file> [server] [port] [version]"
-    echo "Example: $0 finance_db-v17-1-2025-01-26.tar localhost 5432 v17-1"
+    echo "Example: $0 finance_db-v17-6-2025-01-26.tar localhost 5432 v17-6"
     exit 1
 fi
 
