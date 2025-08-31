@@ -12,6 +12,8 @@ script_name="$(basename "$0")"
 log_file="backup-validation-${date}.log"
 exit_code=0
 temp_db="finance_backup_validation_temp"
+start_time=$(date +%s)
+run_marker="RUN_$(date '+%Y%m%d_%H%M%S')_$$"
 
 # Color codes for output
 RED='\033[0;31m'
@@ -23,32 +25,32 @@ NC='\033[0m' # No Color
 # Logging function
 log_msg() {
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[$timestamp] $1" | tee -a "$log_file"
+    echo "[$timestamp] [$run_marker] $1" | tee -a "$log_file"
 }
 
 # Success logging function
 log_success() {
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    printf "${GREEN}[$timestamp] ✅ SUCCESS: $1${NC}\n" | tee -a "$log_file"
+    printf "${GREEN}[$timestamp] [$run_marker] ✅ SUCCESS: $1${NC}\n" | tee -a "$log_file"
 }
 
 # Error logging function
 log_error() {
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    printf "${RED}[$timestamp] ❌ ERROR: $1${NC}\n" | tee -a "$log_file" >&2
+    printf "${RED}[$timestamp] [$run_marker] ❌ ERROR: $1${NC}\n" | tee -a "$log_file" >&2
     exit_code=1
 }
 
 # Warning logging function
 log_warning() {
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    printf "${YELLOW}[$timestamp] ⚠️  WARNING: $1${NC}\n" | tee -a "$log_file"
+    printf "${YELLOW}[$timestamp] [$run_marker] ⚠️  WARNING: $1${NC}\n" | tee -a "$log_file"
 }
 
 # Info logging function
 log_info() {
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    printf "${BLUE}[$timestamp] ℹ️  INFO: $1${NC}\n" | tee -a "$log_file"
+    printf "${BLUE}[$timestamp] [$run_marker] ℹ️  INFO: $1${NC}\n" | tee -a "$log_file"
 }
 
 # Execute command with error handling
@@ -162,8 +164,14 @@ fi
 
 log_success "Backup file found: $backup_file"
 
-# Check backup file size
-file_size=$(stat -f%z "$backup_file" 2>/dev/null || stat -c%s "$backup_file" 2>/dev/null)
+# Check backup file size - cross-platform compatible
+if command -v stat >/dev/null 2>&1; then
+    # Try BSD/macOS format first, then GNU/Linux format
+    file_size=$(stat -f%z "$backup_file" 2>/dev/null || stat -c%s "$backup_file" 2>/dev/null || echo "0")
+else
+    # Fallback using ls if stat is not available
+    file_size=$(ls -l "$backup_file" 2>/dev/null | awk '{print $5}' || echo "0")
+fi
 if [ "$file_size" -lt 1024 ]; then
     log_error "Backup file appears to be too small (${file_size} bytes)"
     exit 1
@@ -194,7 +202,20 @@ if [ ! -f "$HOME/.pgpass" ]; then
     exit 1
 fi
 
-pgpass_perms=$(stat -c "%a" "$HOME/.pgpass" 2>/dev/null || stat -f "%A" "$HOME/.pgpass" 2>/dev/null)
+# Check pgpass permissions - cross-platform compatible
+if command -v stat >/dev/null 2>&1; then
+    # Try GNU/Linux format first, then BSD/macOS format
+    pgpass_perms=$(stat -c "%a" "$HOME/.pgpass" 2>/dev/null || stat -f "%OLp" "$HOME/.pgpass" 2>/dev/null || echo "000")
+else
+    # Fallback using ls if stat is not available
+    pgpass_perms=$(ls -l "$HOME/.pgpass" 2>/dev/null | cut -c2-10 | sed 's/rwx/7/g; s/rw-/6/g; s/r-x/5/g; s/r--/4/g; s/-wx/3/g; s/-w-/2/g; s/--x/1/g; s/---/0/g' | sed 's/\(.*\)\(.*\)\(.*\)/\1\2\3/' | head -c3 || echo "000")
+fi
+
+# Normalize permission format for comparison
+case "$pgpass_perms" in
+    600|rw-------) pgpass_perms="600" ;;
+    *) ;; # Keep as is for error reporting
+esac
 if [ "$pgpass_perms" != "600" ]; then
     log_error "~/.pgpass file has incorrect permissions ($pgpass_perms). Run: chmod 600 ~/.pgpass"
     exit 1
@@ -410,10 +431,10 @@ log_info "User: $username"
 log_info "Validation Date: $(date '+%Y-%m-%d %H:%M:%S')"
 log_info "========================================="
 
-# Count errors and warnings from log (excluding final summary messages)
-error_count=$(grep "ERROR:" "$log_file" 2>/dev/null | grep -v "VALIDATION RESULT:" | grep -v "DO NOT use this backup" | grep -v "Create a new backup" | grep -v "Review errors in the log file" | wc -l | tr -d '\n' || echo "0")
-warning_count=$(grep -c "WARNING:" "$log_file" 2>/dev/null | tr -d '\n' || echo "0")
-success_count=$(grep -c "SUCCESS:" "$log_file" 2>/dev/null | tr -d '\n' || echo "0")
+# Count errors and warnings from current run only
+error_count=$(grep "\[$run_marker\].*ERROR:" "$log_file" 2>/dev/null | grep -v "VALIDATION RESULT:" | grep -v "DO NOT use this backup" | grep -v "Create a new backup" | grep -v "Review errors in the log file" | wc -l | tr -d '\n' || echo "0")
+warning_count=$(grep "\[$run_marker\].*WARNING:" "$log_file" 2>/dev/null | grep -v "VALIDATION RESULT:" | wc -l | tr -d '\n' || echo "0")
+success_count=$(grep "\[$run_marker\].*SUCCESS:" "$log_file" 2>/dev/null | wc -l | tr -d '\n' || echo "0")
 
 log_info "Validation Results:"
 log_info "  - Successes: $success_count"
@@ -469,6 +490,8 @@ else
     log_error "❌ Review errors in the log file: $log_file"
 fi
 
-log_info "Validation completed in $(( $(date +%s) - $(date -d "$(head -1 "$log_file" | sed 's/\x1b\[[0-9;]*m//g' | cut -d']' -f1 | tr -d '[')" +%s) )) seconds"
+end_time=$(date +%s)
+elapsed_time=$((end_time - start_time))
+log_info "Validation completed in $elapsed_time seconds"
 
 exit $exit_code
