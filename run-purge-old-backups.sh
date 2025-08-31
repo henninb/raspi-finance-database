@@ -100,7 +100,7 @@ DELETED_COUNT=0
 delete_files_from_list() {
     local temp_file="$1"
     local file_type="$2"
-    
+
     if [ -s "$temp_file" ]; then
         while IFS= read -r f; do
             if [ -f "$f" ]; then

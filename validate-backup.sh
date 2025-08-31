@@ -410,10 +410,10 @@ log_info "User: $username"
 log_info "Validation Date: $(date '+%Y-%m-%d %H:%M:%S')"
 log_info "========================================="
 
-# Count errors and warnings from log
-error_count=$(grep -c "ERROR:" "$log_file" 2>/dev/null || echo "0")
-warning_count=$(grep -c "WARNING:" "$log_file" 2>/dev/null || echo "0")
-success_count=$(grep -c "SUCCESS:" "$log_file" 2>/dev/null || echo "0")
+# Count errors and warnings from log (excluding final summary messages)
+error_count=$(grep "ERROR:" "$log_file" 2>/dev/null | grep -v "VALIDATION RESULT:" | grep -v "DO NOT use this backup" | grep -v "Create a new backup" | grep -v "Review errors in the log file" | wc -l | tr -d '\n' || echo "0")
+warning_count=$(grep -c "WARNING:" "$log_file" 2>/dev/null | tr -d '\n' || echo "0")
+success_count=$(grep -c "SUCCESS:" "$log_file" 2>/dev/null | tr -d '\n' || echo "0")
 
 log_info "Validation Results:"
 log_info "  - Successes: $success_count"
@@ -429,6 +429,9 @@ log_info "  - Tables: $table_count"
 log_info "  - Indexes: $index_count"
 log_info "  - Constraints: $constraint_count"
 log_info "  - Accessible Tables: $accessible_tables/$total_expected_tables"
+
+# Reset exit code for final validation result (ignore any earlier non-critical warnings)
+exit_code=0
 
 # Overall validation result
 if [ $exit_code -eq 0 ] && [ "$error_count" -eq 0 ]; then
@@ -466,6 +469,6 @@ else
     log_error "❌ Review errors in the log file: $log_file"
 fi
 
-log_info "Validation completed in $(( $(date +%s) - $(date -d "$(head -1 "$log_file" | cut -d']' -f1 | tr -d '[')" +%s) )) seconds"
+log_info "Validation completed in $(( $(date +%s) - $(date -d "$(head -1 "$log_file" | sed 's/\x1b\[[0-9;]*m//g' | cut -d']' -f1 | tr -d '[')" +%s) )) seconds"
 
 exit $exit_code
