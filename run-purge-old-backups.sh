@@ -1,14 +1,16 @@
 #!/bin/sh
 
 # POSIX-compliant purge script with logging and error handling
-# Removes finance_db*.tar backups older than the retention period in current dir
+# Removes finance_db-*.tar backups older than the retention period in current dir
+# Removes ALL finance_fresh_db-*.tar backups regardless of age
 
 # Strict mode (avoid unset vars and stop on errors in simple commands)
 set -eu
 
 # Configuration
 RETENTION_DAYS=${RETENTION_DAYS:-60}
-PATTERN=${PATTERN:-'finance_db*.tar'}
+OLD_DB_PATTERN=${OLD_DB_PATTERN:-'finance_db-*.tar'}
+FRESH_DB_PATTERN=${FRESH_DB_PATTERN:-'finance_fresh_db-*.tar'}
 
 # Globals
 date=$(date '+%Y-%m-%d')
@@ -30,61 +32,102 @@ log_error() {
     exit_code=1
 }
 
-# Ensure we always clean up temp file if created
-TMP_LIST=._purge_list_$$.txt
+# Ensure we always clean up temp files if created
+TMP_OLD_LIST=._purge_old_list_$$.txt
+TMP_FRESH_LIST=._purge_fresh_list_$$.txt
 cleanup() {
     # Best-effort cleanup
-    [ -f "$TMP_LIST" ] && rm -f "$TMP_LIST" || :
+    [ -f "$TMP_OLD_LIST" ] && rm -f "$TMP_OLD_LIST" || :
+    [ -f "$TMP_FRESH_LIST" ] && rm -f "$TMP_FRESH_LIST" || :
 }
 trap cleanup EXIT HUP INT TERM
 
 log_msg "Starting purge script: $script_name"
-log_msg "Retention: ${RETENTION_DAYS} days; Pattern: ${PATTERN}"
+log_msg "Retention: ${RETENTION_DAYS} days; Old DB pattern: ${OLD_DB_PATTERN}"
+log_msg "Fresh DB pattern (all removed): ${FRESH_DB_PATTERN}"
 
-# Find candidate files (limit to current directory; avoid -maxdepth for POSIX)
-# Using -prune to stay within '.' only
-if ! find . -type d ! -name . -prune -o -type f -name "$PATTERN" -mtime "+${RETENTION_DAYS}" -print > "$TMP_LIST" 2>/dev/null; then
-    log_error "find command failed while searching for old backups"
+# Find old finance_db-*.tar files (time-based removal)
+if ! find . -type d ! -name . -prune -o -type f -name "$OLD_DB_PATTERN" -mtime "+${RETENTION_DAYS}" -print > "$TMP_OLD_LIST" 2>/dev/null; then
+    log_error "find command failed while searching for old finance_db backups"
     exit "$exit_code"
 fi
 
-# Count and report
-COUNT=0
-if [ -s "$TMP_LIST" ]; then
-    COUNT=$(wc -l < "$TMP_LIST")
-    log_msg "Found $COUNT old backup(s) eligible for deletion:"
-    # List files for visibility
+# Find ALL finance_fresh_db-*.tar files (remove regardless of age)
+if ! find . -type d ! -name . -prune -o -type f -name "$FRESH_DB_PATTERN" -print > "$TMP_FRESH_LIST" 2>/dev/null; then
+    log_error "find command failed while searching for finance_fresh_db backups"
+    exit "$exit_code"
+fi
+
+# Count and report findings
+OLD_COUNT=0
+FRESH_COUNT=0
+TOTAL_COUNT=0
+
+if [ -s "$TMP_OLD_LIST" ]; then
+    OLD_COUNT=$(wc -l < "$TMP_OLD_LIST")
+    log_msg "Found $OLD_COUNT old finance_db backup(s) eligible for deletion (older than ${RETENTION_DAYS} days):"
     while IFS= read -r f; do
-        # Trim leading ./ for readability
         case "$f" in
             ./*) log_msg "  - ${f#./}" ;;
             *)   log_msg "  - $f" ;;
         esac
-    done < "$TMP_LIST"
-else
-    log_msg "No backups older than ${RETENTION_DAYS} days found; nothing to delete."
+    done < "$TMP_OLD_LIST"
+fi
+
+if [ -s "$TMP_FRESH_LIST" ]; then
+    FRESH_COUNT=$(wc -l < "$TMP_FRESH_LIST")
+    log_msg "Found $FRESH_COUNT finance_fresh_db backup(s) to delete (all removed regardless of age):"
+    while IFS= read -r f; do
+        case "$f" in
+            ./*) log_msg "  - ${f#./}" ;;
+            *)   log_msg "  - $f" ;;
+        esac
+    done < "$TMP_FRESH_LIST"
+fi
+
+TOTAL_COUNT=$((OLD_COUNT + FRESH_COUNT))
+
+if [ "$TOTAL_COUNT" -eq 0 ]; then
+    log_msg "No backups found for deletion; nothing to delete."
     exit 0
 fi
 
 # Delete files one by one to capture individual failures
 DEL_ERRORS=0
-while IFS= read -r f; do
-    if [ -f "$f" ]; then
-        if rm "$f" 2>/dev/null; then
-            log_msg "Deleted: ${f#./}"
-        else
-            log_error "Failed to delete: ${f#./}"
-            DEL_ERRORS=1
-        fi
-    else
-        # File disappeared between find and delete; log and continue
-        log_error "Skipped (not found): ${f#./}"
-        DEL_ERRORS=1
+DELETED_COUNT=0
+
+# Function to delete files from a temp file
+delete_files_from_list() {
+    local temp_file="$1"
+    local file_type="$2"
+    
+    if [ -s "$temp_file" ]; then
+        while IFS= read -r f; do
+            if [ -f "$f" ]; then
+                if rm "$f" 2>/dev/null; then
+                    log_msg "Deleted $file_type: ${f#./}"
+                    DELETED_COUNT=$((DELETED_COUNT + 1))
+                else
+                    log_error "Failed to delete $file_type: ${f#./}"
+                    DEL_ERRORS=1
+                fi
+            else
+                # File disappeared between find and delete; log and continue
+                log_error "Skipped $file_type (not found): ${f#./}"
+                DEL_ERRORS=1
+            fi
+        done < "$temp_file"
     fi
-done < "$TMP_LIST"
+}
+
+# Delete old finance_db files
+delete_files_from_list "$TMP_OLD_LIST" "old finance_db backup"
+
+# Delete all finance_fresh_db files
+delete_files_from_list "$TMP_FRESH_LIST" "finance_fresh_db backup"
 
 if [ "$DEL_ERRORS" -eq 0 ]; then
-    log_msg "Purge completed successfully (deleted $COUNT file(s))."
+    log_msg "Purge completed successfully (deleted $DELETED_COUNT file(s))."
     exit 0
 else
     log_error "Purge completed with some errors (see above)."
