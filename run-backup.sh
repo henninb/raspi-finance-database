@@ -70,8 +70,16 @@ execute_cmd() {
 # Cleanup function for failed backups
 cleanup_on_failure() {
     log_msg "Cleaning up partial backup files due to failure..."
-    rm -f "finance_db-${version}-${date}.tar" 2>/dev/null
-    rm -f "finance_fresh_db-${version}-${date}.tar" 2>/dev/null
+    # Clean up dynamically generated backup files if they exist
+    if [ -n "$finance_db_filename" ] && [ -f "$finance_db_filename" ]; then
+        rm -f "$finance_db_filename" 2>/dev/null
+        log_msg "Removed partial backup file: $finance_db_filename"
+    fi
+    if [ -n "$finance_fresh_db_filename" ] && [ -f "$finance_fresh_db_filename" ]; then
+        rm -f "$finance_fresh_db_filename" 2>/dev/null
+        log_msg "Removed partial backup file: $finance_fresh_db_filename"
+    fi
+    # Clean up CSV files
     rm -f t_*.csv 2>/dev/null
     log_msg "Cleanup completed (includes all CSV files: description, account, category, validation_amount, parameter, transaction, pending_transaction, transaction_categories, payment, transfer, receipt_image, medical_provider, family_member, medical_expense)"
 }
@@ -89,6 +97,27 @@ check_file() {
         log_msg "File verified: $file ($(wc -l < "$file") lines)"
         return 0
     fi
+}
+
+# Generate unique backup filename with counter to prevent overwriting
+generate_unique_filename() {
+    local base_name="$1"
+    local extension="$2"
+    local counter=0
+    local filename="${base_name}.${extension}"
+
+    # Check if base filename exists, if so increment counter
+    while [ -f "$filename" ]; do
+        counter=$((counter + 1))
+        filename="${base_name}-${counter}.${extension}"
+        if [ $counter -gt 99 ]; then
+            log_error "Too many backup files exist (100+), please clean up old backups"
+            return 1
+        fi
+    done
+
+    echo "$filename"
+    return 0
 }
 
 log_msg "Starting backup script: $script_name"
@@ -198,14 +227,32 @@ fi
 
 log_msg "Starting main backup process"
 
+# Generate unique filenames to prevent overwriting existing backups
+log_msg "Generating unique backup filenames..."
+finance_db_filename=$(generate_unique_filename "finance_db-${version}-${date}" "tar")
+if [ $? -ne 0 ]; then
+    log_error "Failed to generate unique filename for finance_db backup"
+    exit 4
+fi
+
+finance_fresh_db_filename=$(generate_unique_filename "finance_fresh_db-${version}-${date}" "tar")
+if [ $? -ne 0 ]; then
+    log_error "Failed to generate unique filename for finance_fresh_db backup"
+    exit 4
+fi
+
+log_msg "Using backup filenames:"
+log_msg "  - Main database: $finance_db_filename"
+log_msg "  - Fresh database: $finance_fresh_db_filename"
+
 # Create main database dump
-if ! execute_cmd "pg_dump -h '${server}' -p '${port}' -U '${username}' -F t -d finance_db > 'finance_db-${version}-${date}.tar'" "Create finance_db dump"; then
+if ! execute_cmd "pg_dump -h '${server}' -p '${port}' -U '${username}' -F t -d finance_db > '${finance_db_filename}'" "Create finance_db dump"; then
     cleanup_on_failure
     exit 4
 fi
 
 # Verify dump file was created and has content
-if ! check_file "finance_db-${version}-${date}.tar"; then
+if ! check_file "${finance_db_filename}"; then
     cleanup_on_failure
     exit 4
 fi
@@ -533,20 +580,20 @@ else
 fi
 
 # Create final dump of fresh database
-if ! execute_cmd "pg_dump -h localhost -p '${port}' -U '${username}' -F t -d finance_fresh_db > 'finance_fresh_db-${version}-${date}.tar'" "Create finance_fresh_db dump"; then
+if ! execute_cmd "pg_dump -h localhost -p '${port}' -U '${username}' -F t -d finance_fresh_db > '${finance_fresh_db_filename}'" "Create finance_fresh_db dump"; then
     cleanup_on_failure
     exit 7
 fi
 
 # Verify final dump file was created and has content
-if ! check_file "finance_fresh_db-${version}-${date}.tar"; then
+if ! check_file "${finance_fresh_db_filename}"; then
     cleanup_on_failure
     exit 7
 fi
 
 # Copy backup to remote server
 log_msg "Copying backup to remote server raspi"
-if ! execute_cmd "scp -p 'finance_db-${version}-${date}.tar' raspi:/home/pi/downloads/finance-db-bkp/" "Copy backup to raspi server"; then
+if ! execute_cmd "scp -p '${finance_db_filename}' raspi:/home/pi/downloads/finance-db-bkp/" "Copy backup to raspi server"; then
     log_error "Failed to copy backup to remote server, but backup files are available locally"
     exit_code=1
 fi
@@ -554,8 +601,8 @@ fi
 # Final status reporting
 log_msg "Backup process completed"
 log_msg "Files created:"
-log_msg "  - finance_db-${version}-${date}.tar ($(ls -lh "finance_db-${version}-${date}.tar" | awk '{print $5}'))"
-log_msg "  - finance_fresh_db-${version}-${date}.tar ($(ls -lh "finance_fresh_db-${version}-${date}.tar" | awk '{print $5}'))"
+log_msg "  - ${finance_db_filename} ($(ls -lh "${finance_db_filename}" | awk '{print $5}'))"
+log_msg "  - ${finance_fresh_db_filename} ($(ls -lh "${finance_fresh_db_filename}" | awk '{print $5}'))"
 log_msg "CSV files exported: $(ls -1 t_*.csv 2>/dev/null | wc -l) files (includes new medical_provider, family_member, and medical_expense tables)"
 
 if [ $exit_code -eq 0 ]; then
