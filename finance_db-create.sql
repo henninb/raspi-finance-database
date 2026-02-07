@@ -661,4 +661,423 @@ FROM public.t_account
 WHERE active_status = true
 AND account_name_owner NOT IN (
     SELECT owner FROM public.t_family_member WHERE relationship = 'self'
+);-- Medical Expense Table Creation for Production Environment
+-- Links medical expenses to existing transactions with 1:1 relationship
+-- Supports comprehensive medical expense tracking with family member support
+
+CREATE TABLE IF NOT EXISTS public.t_medical_expense (
+    medical_expense_id          BIGSERIAL PRIMARY KEY,
+    transaction_id              BIGINT NOT NULL,
+    provider_id                 BIGINT,
+    family_member_id            BIGINT,
+
+    -- Core medical expense data
+    service_date                DATE NOT NULL,
+    service_description         TEXT,
+    procedure_code              TEXT, -- CPT/HCPCS codes
+    diagnosis_code              TEXT, -- ICD-10 codes
+
+    -- Financial breakdown
+    billed_amount              NUMERIC(12,2) DEFAULT 0.00 NOT NULL,
+    insurance_discount         NUMERIC(12,2) DEFAULT 0.00 NOT NULL,
+    insurance_paid             NUMERIC(12,2) DEFAULT 0.00 NOT NULL,
+    patient_responsibility     NUMERIC(12,2) DEFAULT 0.00 NOT NULL,
+    paid_date                  DATE,
+
+    -- Insurance details
+    is_out_of_network          BOOLEAN DEFAULT FALSE NOT NULL,
+    claim_number               TEXT,
+    claim_status               TEXT DEFAULT 'submitted' NOT NULL,
+
+    -- Audit fields
+    active_status              BOOLEAN DEFAULT TRUE NOT NULL,
+    date_added                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    date_updated               TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+
+    -- Constraints
+    CONSTRAINT fk_medical_expense_transaction FOREIGN KEY (transaction_id)
+        REFERENCES public.t_transaction(transaction_id) ON DELETE CASCADE,
+    CONSTRAINT fk_medical_expense_provider FOREIGN KEY (provider_id)
+        REFERENCES public.t_medical_provider(provider_id),
+    CONSTRAINT fk_medical_expense_family_member FOREIGN KEY (family_member_id)
+        REFERENCES public.t_family_member(family_member_id),
+    CONSTRAINT uk_medical_expense_transaction UNIQUE (transaction_id),
+    CONSTRAINT ck_medical_expense_claim_status CHECK (claim_status IN (
+        'submitted', 'processing', 'approved', 'denied', 'paid', 'closed'
+    )),
+    CONSTRAINT ck_medical_expense_financial_amounts CHECK (
+        billed_amount >= 0 AND
+        insurance_discount >= 0 AND
+        insurance_paid >= 0 AND
+        patient_responsibility >= 0
+    ),
+    CONSTRAINT ck_medical_expense_service_date_valid CHECK (service_date <= CURRENT_DATE),
+    CONSTRAINT ck_medical_expense_financial_consistency CHECK (
+        billed_amount >= (insurance_discount + insurance_paid + patient_responsibility)
+    )
 );
+
+-- Performance indexes
+CREATE UNIQUE INDEX idx_medical_expense_transaction ON public.t_medical_expense(transaction_id);
+CREATE INDEX idx_medical_expense_provider ON public.t_medical_expense(provider_id);
+CREATE INDEX idx_medical_expense_family_member ON public.t_medical_expense(family_member_id);
+CREATE INDEX idx_medical_expense_service_date ON public.t_medical_expense(service_date);
+CREATE INDEX idx_medical_expense_claim_number ON public.t_medical_expense(claim_number) WHERE claim_number IS NOT NULL;
+CREATE INDEX idx_medical_expense_claim_status ON public.t_medical_expense(claim_status);
+CREATE INDEX idx_medical_expense_active ON public.t_medical_expense(active_status, service_date);
+
+-- Comments for documentation
+COMMENT ON TABLE public.t_medical_expense IS 'Medical expenses linked to transactions with comprehensive tracking';
+COMMENT ON COLUMN public.t_medical_expense.medical_expense_id IS 'Primary key for medical expense records';
+COMMENT ON COLUMN public.t_medical_expense.transaction_id IS 'Foreign key to t_transaction (1:1 relationship)';
+COMMENT ON COLUMN public.t_medical_expense.provider_id IS 'Foreign key to t_medical_provider';
+COMMENT ON COLUMN public.t_medical_expense.family_member_id IS 'Foreign key to t_family_member for tracking which family member';
+COMMENT ON COLUMN public.t_medical_expense.service_date IS 'Date medical service was provided (different from payment date)';
+COMMENT ON COLUMN public.t_medical_expense.billed_amount IS 'Original amount billed by provider';
+COMMENT ON COLUMN public.t_medical_expense.insurance_discount IS 'Insurance negotiated discount amount';
+COMMENT ON COLUMN public.t_medical_expense.insurance_paid IS 'Amount paid by insurance';
+COMMENT ON COLUMN public.t_medical_expense.patient_responsibility IS 'Amount patient is responsible to pay';
+COMMENT ON COLUMN public.t_medical_expense.is_out_of_network IS 'Whether provider is out of insurance network';
+COMMENT ON COLUMN public.t_medical_expense.claim_status IS 'Status of insurance claim processing';-- Migration: V11__decouple-medical-expense-payments.sql
+-- Purpose: Decouple medical expenses from transaction creation
+-- Changes:
+--   1. Make transaction_id nullable in t_medical_expense
+--   2. Add paid_amount field to track actual payment amounts
+--   3. Update existing records to sync paid_amount with patient_responsibility
+
+-- Make transaction_id nullable to allow medical expenses without payments
+ALTER TABLE public.t_medical_expense
+ALTER COLUMN transaction_id DROP NOT NULL;
+
+-- Add paid_amount field to track actual payment amounts
+ALTER TABLE public.t_medical_expense
+ADD COLUMN paid_amount NUMERIC(12,2) DEFAULT 0.00 NOT NULL;
+
+-- Add constraint to ensure paid_amount is non-negative
+ALTER TABLE public.t_medical_expense
+ADD CONSTRAINT ck_paid_amount_non_negative CHECK (paid_amount >= 0);
+
+-- Update existing records to sync paid_amount with patient_responsibility where transaction exists
+-- This maintains backward compatibility for existing medical expenses with transactions
+UPDATE public.t_medical_expense
+SET paid_amount = patient_responsibility
+WHERE transaction_id IS NOT NULL;
+
+-- Add comment to document the new field
+COMMENT ON COLUMN public.t_medical_expense.paid_amount IS 'Actual amount paid by patient, synced with linked transaction amount';
+COMMENT ON COLUMN public.t_medical_expense.transaction_id IS 'Optional reference to payment transaction, can be null for unpaid expenses';-- Performance index for transaction account lookup
+-- Migration: V12__add-transaction-account-lookup-index.sql
+-- Purpose: Optimize findByAccountNameOwnerAndActiveStatusOrderByTransactionDateDesc query
+-- Performance Impact: ~11,500ms → ~50-200ms expected improvement
+
+SET client_min_messages TO WARNING;
+
+-- ================================
+-- TRANSACTION ACCOUNT LOOKUP INDEX
+-- ================================
+
+-- This index optimizes the most common transaction query pattern:
+-- SELECT * FROM t_transaction
+-- WHERE account_name_owner = ? AND active_status = true
+-- ORDER BY transaction_date DESC
+
+-- Index definition:
+-- - account_name_owner: Primary filter column (high selectivity)
+-- - active_status: Secondary filter (most queries use active_status = true)
+-- - transaction_date DESC: Matches ORDER BY clause for index-only scan
+
+DO $$
+BEGIN
+    -- Check if index already exists
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_indexes
+        WHERE schemaname = 'public'
+        AND tablename = 't_transaction'
+        AND indexname = 'idx_transaction_account_lookup'
+    ) THEN
+        -- Create index
+        CREATE INDEX idx_transaction_account_lookup
+        ON t_transaction (account_name_owner, active_status, transaction_date DESC);
+
+        RAISE NOTICE 'Created index: idx_transaction_account_lookup';
+    ELSE
+        RAISE NOTICE 'Index idx_transaction_account_lookup already exists, skipping';
+    END IF;
+END
+$$;
+
+-- Index statistics
+-- Expected impact:
+-- - Query execution time: 11,500ms → 50-200ms
+-- - Eliminates full table scan
+-- - Enables index-only scan for ORDER BY
+-- - Disk space: ~50-100MB (depending on row count)
+-- Multi-Tenant Stage 1: Database-only migration
+-- Backfill owner columns, add owner to t_medical_expense,
+-- add owner indexes, add composite unique constraints alongside existing ones.
+-- Zero impact on running application since it ignores owner columns.
+
+BEGIN;
+
+---------------------------------------
+-- 1. Backfill owner columns with 'henninb'
+---------------------------------------
+UPDATE public.t_account SET owner = 'henninb' WHERE owner IS NULL;
+UPDATE public.t_transaction SET owner = 'henninb' WHERE owner IS NULL;
+UPDATE public.t_category SET owner = 'henninb' WHERE owner IS NULL;
+UPDATE public.t_description SET owner = 'henninb' WHERE owner IS NULL;
+UPDATE public.t_payment SET owner = 'henninb' WHERE owner IS NULL;
+UPDATE public.t_transfer SET owner = 'henninb' WHERE owner IS NULL;
+UPDATE public.t_validation_amount SET owner = 'henninb' WHERE owner IS NULL;
+UPDATE public.t_receipt_image SET owner = 'henninb' WHERE owner IS NULL;
+UPDATE public.t_pending_transaction SET owner = 'henninb' WHERE owner IS NULL;
+UPDATE public.t_parameter SET owner = 'henninb' WHERE owner IS NULL;
+UPDATE public.t_transaction_categories SET owner = 'henninb' WHERE owner IS NULL;
+
+---------------------------------------
+-- 2. Add owner column to t_medical_expense
+---------------------------------------
+ALTER TABLE public.t_medical_expense ADD COLUMN IF NOT EXISTS owner TEXT NULL;
+UPDATE public.t_medical_expense SET owner = 'henninb' WHERE owner IS NULL;
+
+---------------------------------------
+-- 3. Add indexes on owner
+---------------------------------------
+CREATE INDEX IF NOT EXISTS idx_account_owner ON public.t_account(owner);
+CREATE INDEX IF NOT EXISTS idx_transaction_owner ON public.t_transaction(owner);
+CREATE INDEX IF NOT EXISTS idx_category_owner ON public.t_category(owner);
+CREATE INDEX IF NOT EXISTS idx_description_owner ON public.t_description(owner);
+CREATE INDEX IF NOT EXISTS idx_payment_owner ON public.t_payment(owner);
+CREATE INDEX IF NOT EXISTS idx_transfer_owner ON public.t_transfer(owner);
+CREATE INDEX IF NOT EXISTS idx_validation_amount_owner ON public.t_validation_amount(owner);
+CREATE INDEX IF NOT EXISTS idx_receipt_image_owner ON public.t_receipt_image(owner);
+CREATE INDEX IF NOT EXISTS idx_pending_transaction_owner ON public.t_pending_transaction(owner);
+CREATE INDEX IF NOT EXISTS idx_parameter_owner ON public.t_parameter(owner);
+CREATE INDEX IF NOT EXISTS idx_transaction_categories_owner ON public.t_transaction_categories(owner);
+CREATE INDEX IF NOT EXISTS idx_medical_expense_owner ON public.t_medical_expense(owner);
+
+---------------------------------------
+-- 4. Add composite unique constraints alongside existing ones
+---------------------------------------
+
+-- t_account: existing unique_account_name_owner_account_type(account_name_owner, account_type)
+ALTER TABLE public.t_account
+    ADD CONSTRAINT unique_owner_account_name_owner_account_type UNIQUE (owner, account_name_owner, account_type);
+
+-- t_category: existing category_name UNIQUE
+ALTER TABLE public.t_category
+    ADD CONSTRAINT unique_owner_category_name UNIQUE (owner, category_name);
+
+-- t_description: existing description_name UNIQUE
+ALTER TABLE public.t_description
+    ADD CONSTRAINT unique_owner_description_name UNIQUE (owner, description_name);
+
+-- t_transaction: existing transaction_constraint(account_name_owner, transaction_date, description, category, amount, notes)
+ALTER TABLE public.t_transaction
+    ADD CONSTRAINT unique_owner_transaction UNIQUE (owner, account_name_owner, transaction_date, description, category, amount, notes);
+
+-- t_payment: existing payment_constraint_destination(destination_account, transaction_date, amount) from V05
+ALTER TABLE public.t_payment
+    ADD CONSTRAINT unique_owner_payment UNIQUE (owner, destination_account, transaction_date, amount);
+
+-- t_transfer: existing transfer_constraint(source_account, destination_account, transaction_date, amount)
+ALTER TABLE public.t_transfer
+    ADD CONSTRAINT unique_owner_transfer UNIQUE (owner, source_account, destination_account, transaction_date, amount);
+
+-- t_parameter: existing parameter_name UNIQUE
+ALTER TABLE public.t_parameter
+    ADD CONSTRAINT unique_owner_parameter_name UNIQUE (owner, parameter_name);
+
+-- t_pending_transaction: existing unique_pending_transaction_fields(account_name_owner, transaction_date, description, amount)
+ALTER TABLE public.t_pending_transaction
+    ADD CONSTRAINT unique_owner_pending_transaction UNIQUE (owner, account_name_owner, transaction_date, description, amount);
+
+COMMIT;
+-- Fix owner values to match JWT username (email) instead of short username.
+-- V13 backfilled owner as 'henninb' but the JWT token uses the full username
+-- from t_user (e.g. 'henninb@gmail.com'), causing a mismatch at runtime.
+
+BEGIN;
+
+UPDATE public.t_account SET owner = 'henninb@gmail.com' WHERE owner = 'henninb';
+UPDATE public.t_transaction SET owner = 'henninb@gmail.com' WHERE owner = 'henninb';
+UPDATE public.t_category SET owner = 'henninb@gmail.com' WHERE owner = 'henninb';
+UPDATE public.t_description SET owner = 'henninb@gmail.com' WHERE owner = 'henninb';
+UPDATE public.t_payment SET owner = 'henninb@gmail.com' WHERE owner = 'henninb';
+UPDATE public.t_transfer SET owner = 'henninb@gmail.com' WHERE owner = 'henninb';
+UPDATE public.t_validation_amount SET owner = 'henninb@gmail.com' WHERE owner = 'henninb';
+UPDATE public.t_receipt_image SET owner = 'henninb@gmail.com' WHERE owner = 'henninb';
+UPDATE public.t_pending_transaction SET owner = 'henninb@gmail.com' WHERE owner = 'henninb';
+UPDATE public.t_parameter SET owner = 'henninb@gmail.com' WHERE owner = 'henninb';
+UPDATE public.t_transaction_categories SET owner = 'henninb@gmail.com' WHERE owner = 'henninb';
+UPDATE public.t_medical_expense SET owner = 'henninb@gmail.com' WHERE owner = 'henninb';
+
+COMMIT;
+-- Multi-Tenant Stage 2: Enforce owner at database level
+-- 1. Make owner NOT NULL on all tables
+-- 2. Add compound unique constraints needed for new FKs
+-- 3. Replace single-column FKs with compound (owner, ...) FKs
+-- 4. Drop old global unique constraints (allows same names across tenants)
+-- 5. Update stored functions to include owner parameter
+
+BEGIN;
+
+---------------------------------------
+-- 1. Make owner NOT NULL on all tables
+---------------------------------------
+ALTER TABLE public.t_account ALTER COLUMN owner SET NOT NULL;
+ALTER TABLE public.t_transaction ALTER COLUMN owner SET NOT NULL;
+ALTER TABLE public.t_category ALTER COLUMN owner SET NOT NULL;
+ALTER TABLE public.t_description ALTER COLUMN owner SET NOT NULL;
+ALTER TABLE public.t_payment ALTER COLUMN owner SET NOT NULL;
+ALTER TABLE public.t_transfer ALTER COLUMN owner SET NOT NULL;
+ALTER TABLE public.t_validation_amount ALTER COLUMN owner SET NOT NULL;
+ALTER TABLE public.t_receipt_image ALTER COLUMN owner SET NOT NULL;
+ALTER TABLE public.t_pending_transaction ALTER COLUMN owner SET NOT NULL;
+ALTER TABLE public.t_parameter ALTER COLUMN owner SET NOT NULL;
+ALTER TABLE public.t_transaction_categories ALTER COLUMN owner SET NOT NULL;
+ALTER TABLE public.t_medical_expense ALTER COLUMN owner SET NOT NULL;
+
+-----------------------------------------------
+-- 2. Add compound unique constraints for FKs
+-----------------------------------------------
+-- t_account needs (owner, account_name_owner) for FKs from payment, transfer, pending_transaction
+ALTER TABLE public.t_account
+    ADD CONSTRAINT unique_owner_account_name_owner UNIQUE (owner, account_name_owner);
+
+-- t_account needs (owner, account_id, account_name_owner, account_type) for FK from transaction
+ALTER TABLE public.t_account
+    ADD CONSTRAINT unique_owner_account_id_name_type UNIQUE (owner, account_id, account_name_owner, account_type);
+
+-----------------------------------------------
+-- 3. Replace FKs with compound (owner, ...) FKs
+-----------------------------------------------
+
+-- t_transaction -> t_category: (owner, category) -> (owner, category_name)
+ALTER TABLE public.t_transaction DROP CONSTRAINT fk_category_name;
+ALTER TABLE public.t_transaction
+    ADD CONSTRAINT fk_category_name FOREIGN KEY (owner, category)
+        REFERENCES public.t_category (owner, category_name) ON UPDATE CASCADE ON DELETE RESTRICT;
+
+-- t_transaction -> t_description: (owner, description) -> (owner, description_name)
+ALTER TABLE public.t_transaction DROP CONSTRAINT fk_description_name;
+ALTER TABLE public.t_transaction
+    ADD CONSTRAINT fk_description_name FOREIGN KEY (owner, description)
+        REFERENCES public.t_description (owner, description_name) ON UPDATE CASCADE ON DELETE RESTRICT;
+
+-- t_transaction -> t_account: add owner to the compound FK
+ALTER TABLE public.t_transaction DROP CONSTRAINT fk_account_id_account_name_owner;
+ALTER TABLE public.t_transaction
+    ADD CONSTRAINT fk_account_id_account_name_owner FOREIGN KEY (owner, account_id, account_name_owner, account_type)
+        REFERENCES public.t_account (owner, account_id, account_name_owner, account_type) ON UPDATE CASCADE;
+
+-- t_pending_transaction -> t_account: (owner, account_name_owner) -> (owner, account_name_owner)
+ALTER TABLE public.t_pending_transaction DROP CONSTRAINT fk_pending_account;
+ALTER TABLE public.t_pending_transaction
+    ADD CONSTRAINT fk_pending_account FOREIGN KEY (owner, account_name_owner)
+        REFERENCES public.t_account (owner, account_name_owner) ON UPDATE CASCADE;
+
+-- t_payment -> t_account: source and destination compound FKs
+ALTER TABLE public.t_payment DROP CONSTRAINT fk_payment_source_account;
+ALTER TABLE public.t_payment
+    ADD CONSTRAINT fk_payment_source_account FOREIGN KEY (owner, source_account)
+        REFERENCES public.t_account (owner, account_name_owner) ON UPDATE CASCADE;
+
+ALTER TABLE public.t_payment DROP CONSTRAINT fk_payment_destination_account;
+ALTER TABLE public.t_payment
+    ADD CONSTRAINT fk_payment_destination_account FOREIGN KEY (owner, destination_account)
+        REFERENCES public.t_account (owner, account_name_owner) ON UPDATE CASCADE;
+
+-- t_transfer -> t_account: source and destination compound FKs
+ALTER TABLE public.t_transfer DROP CONSTRAINT fk_source_account;
+ALTER TABLE public.t_transfer
+    ADD CONSTRAINT fk_source_account FOREIGN KEY (owner, source_account)
+        REFERENCES public.t_account (owner, account_name_owner) ON UPDATE CASCADE;
+
+ALTER TABLE public.t_transfer DROP CONSTRAINT fk_destination_account;
+ALTER TABLE public.t_transfer
+    ADD CONSTRAINT fk_destination_account FOREIGN KEY (owner, destination_account)
+        REFERENCES public.t_account (owner, account_name_owner) ON UPDATE CASCADE;
+
+-----------------------------------------------
+-- 4. Drop old global unique constraints
+-----------------------------------------------
+-- These prevented the same name from existing across different tenants.
+-- The new owner-scoped constraints from V13 replace them.
+
+-- t_account: drop global uniques (account_name_owner alone, and without owner)
+ALTER TABLE public.t_account DROP CONSTRAINT t_account_account_name_owner_key;
+ALTER TABLE public.t_account DROP CONSTRAINT unique_account_name_owner_account_type;
+ALTER TABLE public.t_account DROP CONSTRAINT unique_account_name_owner_account_id;
+
+-- t_category: drop global unique on category_name
+ALTER TABLE public.t_category DROP CONSTRAINT t_category_category_name_key;
+
+-- t_description: drop global unique on description_name
+ALTER TABLE public.t_description DROP CONSTRAINT t_description_description_name_key;
+
+-- t_transaction: drop global unique constraint
+ALTER TABLE public.t_transaction DROP CONSTRAINT transaction_constraint;
+
+-- t_payment: drop global unique constraint (from V05)
+ALTER TABLE public.t_payment DROP CONSTRAINT payment_constraint_destination;
+
+-- t_transfer: drop global unique constraint
+ALTER TABLE public.t_transfer DROP CONSTRAINT transfer_constraint;
+
+-- t_parameter: drop global unique on parameter_name
+ALTER TABLE public.t_parameter DROP CONSTRAINT t_parameter_parameter_name_key;
+
+-- t_pending_transaction: drop global unique constraint
+ALTER TABLE public.t_pending_transaction DROP CONSTRAINT unique_pending_transaction_fields;
+
+-----------------------------------------------
+-- 5. Update stored functions with owner param
+-----------------------------------------------
+CREATE OR REPLACE FUNCTION rename_account_owner(
+    p_old_name VARCHAR,
+    p_new_name VARCHAR,
+    p_owner VARCHAR
+)
+RETURNS VOID
+SET SCHEMA 'public'
+LANGUAGE PLPGSQL
+AS
+$$
+BEGIN
+    EXECUTE 'ALTER TABLE t_transaction DISABLE TRIGGER ALL';
+
+    EXECUTE 'UPDATE t_transaction SET account_name_owner = $1 WHERE account_name_owner = $2 AND owner = $3'
+    USING p_new_name, p_old_name, p_owner;
+
+    EXECUTE 'UPDATE t_account SET account_name_owner = $1 WHERE account_name_owner = $2 AND owner = $3'
+    USING p_new_name, p_old_name, p_owner;
+
+    EXECUTE 'ALTER TABLE t_transaction ENABLE TRIGGER ALL';
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION disable_account_owner(
+    p_new_name VARCHAR,
+    p_owner VARCHAR
+)
+RETURNS VOID
+SET SCHEMA 'public'
+LANGUAGE PLPGSQL
+AS
+$$
+BEGIN
+    EXECUTE 'ALTER TABLE t_transaction DISABLE TRIGGER ALL';
+
+    EXECUTE 'UPDATE t_transaction SET active_status = false WHERE account_name_owner = $1 AND owner = $2'
+    USING p_new_name, p_owner;
+
+    EXECUTE 'UPDATE t_account SET active_status = false WHERE account_name_owner = $1 AND owner = $2'
+    USING p_new_name, p_owner;
+
+    EXECUTE 'ALTER TABLE t_transaction ENABLE TRIGGER ALL';
+END;
+$$;
+
+COMMIT;

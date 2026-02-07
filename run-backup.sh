@@ -153,7 +153,7 @@ log_msg "Checking command line arguments (received $# arguments)"
 if [ $# -ne 1 ] && [ $# -ne 2 ] && [ $# -ne 3 ]; then
   log_error "Invalid number of arguments"
   echo "Usage: $0 [server] [port] [version]"
-  echo "$0 192.168.10.25 5432 v16-1"
+  echo "$0 192.168.10.25 5432 v18-1"
   exit 1
 fi
 
@@ -190,7 +190,7 @@ fi
 log_msg "Final configuration - Server: '$server', Port: '$port', Version: '$version', User: '$username'"
 
 log_msg "Reminder: both dump and restore should be performed using the latest binaries"
-log_msg "Example: migrate from version 17.3 to 17.5 - use pg_dump binary for 17.5 to connect to 17.3"
+log_msg "Example: migrate from version 18.0 to 18.1 - use pg_dump binary for 18.1 to connect to 18.0"
 
 log_msg "Checking for ~/.pgpass file"
 if [ ! -f "$HOME/.pgpass" ]; then
@@ -536,7 +536,7 @@ fi
 log_msg "Checking if t_medical_expense table exists in source database..."
 if psql -h "${server}" -p "${port}" -U "${username}" finance_db -c "SELECT 1 FROM t_medical_expense LIMIT 1;" >/dev/null 2>&1; then
     log_msg "t_medical_expense table found in source database, proceeding with export..."
-    if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT medical_expense_id, transaction_id, provider_id, family_member_id, service_date, service_description, procedure_code, diagnosis_code, billed_amount, insurance_discount, insurance_paid, patient_responsibility, paid_date, is_out_of_network, claim_number, claim_status, active_status, date_added, date_updated, paid_amount from t_medical_expense ORDER BY medical_expense_id) TO 't_medical_expense.csv' CSV HEADER\"" "Export t_medical_expense table"; then
+    if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT medical_expense_id, transaction_id, provider_id, family_member_id, service_date, service_description, procedure_code, diagnosis_code, billed_amount, insurance_discount, insurance_paid, patient_responsibility, paid_date, is_out_of_network, claim_number, claim_status, active_status, date_added, date_updated, paid_amount, owner from t_medical_expense ORDER BY medical_expense_id) TO 't_medical_expense.csv' CSV HEADER\"" "Export t_medical_expense table"; then
         cleanup_on_failure
         exit 6
     fi
@@ -547,7 +547,7 @@ if psql -h "${server}" -p "${port}" -U "${username}" finance_db -c "SELECT 1 FRO
     fi
 else
     log_msg "t_medical_expense table not found in source database - creating empty CSV file..."
-    echo "medical_expense_id,transaction_id,provider_id,family_member_id,service_date,service_description,procedure_code,diagnosis_code,billed_amount,insurance_discount,insurance_paid,patient_responsibility,paid_date,is_out_of_network,claim_number,claim_status,active_status,date_added,date_updated,paid_amount" > t_medical_expense.csv
+    echo "medical_expense_id,transaction_id,provider_id,family_member_id,service_date,service_description,procedure_code,diagnosis_code,billed_amount,insurance_discount,insurance_paid,patient_responsibility,paid_date,is_out_of_network,claim_number,claim_status,active_status,date_added,date_updated,paid_amount,owner" > t_medical_expense.csv
     log_msg "Empty t_medical_expense.csv created (table will use default data from schema)"
 fi
 
