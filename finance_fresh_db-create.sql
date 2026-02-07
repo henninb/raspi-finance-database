@@ -1081,3 +1081,94 @@ END;
 $$;
 
 COMMIT;
+-- Add compound (owner, ...) FKs for t_validation_amount and t_receipt_image
+-- to prevent cross-tenant references via account_id and transaction_id.
+
+BEGIN;
+
+-----------------------------------------------
+-- 1. Add unique constraints needed for compound FKs
+-----------------------------------------------
+ALTER TABLE public.t_account
+    ADD CONSTRAINT unique_owner_account_id UNIQUE (owner, account_id);
+
+ALTER TABLE public.t_transaction
+    ADD CONSTRAINT unique_owner_transaction_id UNIQUE (owner, transaction_id);
+
+-----------------------------------------------
+-- 2. Replace FKs with compound (owner, ...) FKs
+-----------------------------------------------
+
+-- t_validation_amount -> t_account: (owner, account_id) -> (owner, account_id)
+ALTER TABLE public.t_validation_amount DROP CONSTRAINT fk_account_id;
+ALTER TABLE public.t_validation_amount
+    ADD CONSTRAINT fk_account_id FOREIGN KEY (owner, account_id)
+        REFERENCES public.t_account (owner, account_id) ON UPDATE CASCADE;
+
+-- t_receipt_image -> t_transaction: (owner, transaction_id) -> (owner, transaction_id)
+ALTER TABLE public.t_receipt_image DROP CONSTRAINT fk_transaction;
+ALTER TABLE public.t_receipt_image
+    ADD CONSTRAINT fk_transaction FOREIGN KEY (owner, transaction_id)
+        REFERENCES public.t_transaction (owner, transaction_id) ON UPDATE CASCADE;
+
+COMMIT;
+-- Fix t_family_member multi-tenant gap:
+-- 1. V09 seed data set owner to account_name_owner values (account names, not username)
+-- 2. V14 fixed owner from 'henninb' to 'henninb@gmail.com' but missed t_family_member
+-- 3. t_medical_expense FKs to t_family_member and t_transaction are single-column (no tenant isolation)
+
+BEGIN;
+
+-----------------------------------------------
+-- 1. Fix owner values in t_family_member
+--    V09 used account_name_owner as owner, which is wrong for multi-tenancy.
+--    All existing family members belong to the only existing user.
+-----------------------------------------------
+UPDATE public.t_family_member
+SET owner = 'henninb@gmail.com'
+WHERE owner IS NULL OR owner = '' OR owner != 'henninb@gmail.com';
+
+-----------------------------------------------
+-- 2. Add unique constraint on (owner, family_member_id) for compound FK target
+-----------------------------------------------
+ALTER TABLE public.t_family_member
+    ADD CONSTRAINT unique_owner_family_member_id UNIQUE (owner, family_member_id);
+
+-----------------------------------------------
+-- 3. Replace single-column FK on t_medical_expense -> t_family_member
+--    with compound (owner, family_member_id) FK
+-----------------------------------------------
+ALTER TABLE public.t_medical_expense DROP CONSTRAINT fk_medical_expense_family_member;
+ALTER TABLE public.t_medical_expense
+    ADD CONSTRAINT fk_medical_expense_family_member FOREIGN KEY (owner, family_member_id)
+        REFERENCES public.t_family_member (owner, family_member_id) ON UPDATE CASCADE;
+
+-----------------------------------------------
+-- 4. Replace single-column FK on t_medical_expense -> t_transaction
+--    with compound (owner, transaction_id) FK
+--    (V16 added unique_owner_transaction_id on t_transaction but only
+--     updated t_receipt_image, not t_medical_expense)
+-----------------------------------------------
+ALTER TABLE public.t_medical_expense DROP CONSTRAINT fk_medical_expense_transaction;
+ALTER TABLE public.t_medical_expense
+    ADD CONSTRAINT fk_medical_expense_transaction FOREIGN KEY (owner, transaction_id)
+        REFERENCES public.t_transaction (owner, transaction_id) ON DELETE CASCADE;
+
+COMMIT;
+-- Fix t_transaction_categories owner: Hibernate's @ManyToMany @JoinTable only
+-- inserts (transaction_id, category_id), leaving owner NULL.
+-- Update the existing BEFORE INSERT trigger to auto-populate owner from t_transaction.
+
+CREATE OR REPLACE FUNCTION fn_insert_transaction_categories()
+    RETURNS TRIGGER
+    SET SCHEMA 'public'
+    LANGUAGE PLPGSQL
+AS
+$$
+    BEGIN
+      NEW.owner := (SELECT owner FROM t_transaction WHERE transaction_id = NEW.transaction_id);
+      NEW.date_updated := CURRENT_TIMESTAMP;
+      NEW.date_added := CURRENT_TIMESTAMP;
+      RETURN NEW;
+    END;
+$$;
