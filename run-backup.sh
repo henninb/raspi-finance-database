@@ -297,6 +297,40 @@ COMMIT;\"" "Apply V11 migration to fresh database" "true"; then
     exit 5
 fi
 
+# Apply V21 migration to add billing cycle fields to t_account
+log_msg "Applying V21 migration to add credit card billing fields to t_account..."
+if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' -d finance_fresh_db -c \"
+BEGIN;
+ALTER TABLE public.t_account
+    ADD COLUMN IF NOT EXISTS billing_statement_close_day SMALLINT NULL,
+    ADD COLUMN IF NOT EXISTS billing_grace_period_days   SMALLINT NULL,
+    ADD COLUMN IF NOT EXISTS billing_due_day_same_month  SMALLINT NULL,
+    ADD COLUMN IF NOT EXISTS billing_due_day_next_month  SMALLINT NULL,
+    ADD COLUMN IF NOT EXISTS billing_cycle_weekend_shift TEXT     NULL;
+DO \\\$\\\$ BEGIN
+    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_statement_close_day CHECK (billing_statement_close_day BETWEEN 1 AND 31);
+EXCEPTION WHEN duplicate_object THEN NULL; END \\\$\\\$;
+DO \\\$\\\$ BEGIN
+    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_grace_period_days CHECK (billing_grace_period_days BETWEEN 1 AND 60);
+EXCEPTION WHEN duplicate_object THEN NULL; END \\\$\\\$;
+DO \\\$\\\$ BEGIN
+    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_due_day_same_month CHECK (billing_due_day_same_month BETWEEN 1 AND 31);
+EXCEPTION WHEN duplicate_object THEN NULL; END \\\$\\\$;
+DO \\\$\\\$ BEGIN
+    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_due_day_next_month CHECK (billing_due_day_next_month BETWEEN 1 AND 31);
+EXCEPTION WHEN duplicate_object THEN NULL; END \\\$\\\$;
+DO \\\$\\\$ BEGIN
+    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_cycle_weekend_shift CHECK (billing_cycle_weekend_shift IN ('back', 'forward'));
+EXCEPTION WHEN duplicate_object THEN NULL; END \\\$\\\$;
+DO \\\$\\\$ BEGIN
+    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_due_method_exclusive CHECK ((CASE WHEN billing_grace_period_days IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN billing_due_day_same_month IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN billing_due_day_next_month IS NOT NULL THEN 1 ELSE 0 END) <= 1);
+EXCEPTION WHEN duplicate_object THEN NULL; END \\\$\\\$;
+COMMIT;\"" "Apply V21 migration to fresh database" "true"; then
+    log_error "Failed to apply V21 migration to fresh database"
+    cleanup_on_failure
+    exit 5
+fi
+
 # Verify new tables exist in fresh database (non-fatal verification)
 log_msg "Verifying new medical expense tables exist in fresh database..."
 
@@ -372,7 +406,7 @@ if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' finance_fresh_
 fi
 
 # Export and import account table
-if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT account_id, account_name_owner, account_name, account_owner, account_type, active_status, payment_required, moniker, future, outstanding, cleared, date_closed, validation_date, owner, date_updated, date_added from t_account ORDER BY account_id) TO 't_account.csv' CSV HEADER\"" "Export t_account table"; then
+if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT account_id, account_name_owner, account_name, account_owner, account_type, active_status, payment_required, moniker, future, outstanding, cleared, date_closed, validation_date, owner, date_updated, date_added, billing_statement_close_day, billing_grace_period_days, billing_due_day_same_month, billing_due_day_next_month, billing_cycle_weekend_shift from t_account ORDER BY account_id) TO 't_account.csv' CSV HEADER\"" "Export t_account table"; then
     cleanup_on_failure
     exit 6
 fi
