@@ -320,7 +320,7 @@ DO \\\$\\\$ BEGIN
     ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_due_day_next_month CHECK (billing_due_day_next_month BETWEEN 1 AND 31);
 EXCEPTION WHEN duplicate_object THEN NULL; END \\\$\\\$;
 DO \\\$\\\$ BEGIN
-    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_cycle_weekend_shift CHECK (billing_cycle_weekend_shift IN ('back', 'forward'));
+    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_cycle_weekend_shift CHECK (billing_cycle_weekend_shift IN ('back', 'forward', 'back_sat_only'));
 EXCEPTION WHEN duplicate_object THEN NULL; END \\\$\\\$;
 DO \\\$\\\$ BEGIN
     ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_due_method_exclusive CHECK ((CASE WHEN billing_grace_period_days IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN billing_due_day_same_month IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN billing_due_day_next_month IS NOT NULL THEN 1 ELSE 0 END) <= 1);
