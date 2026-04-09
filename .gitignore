@@ -8,3 +8,6 @@ nohup.out
 *.tsv
 *.csv
 restore.sql
+
+# Claude Code local settings
+.claude/settings.local.json
