@@ -136,6 +136,13 @@ OPTIONAL_TABLES: list[tuple[str, str, str, str, bool]] = [
         ),
         False,
     ),
+    (
+        "t_token_blacklist",
+        "token_blacklist_id, token_hash, expires_at",
+        "token_blacklist_id",
+        "token_blacklist_id,token_hash,expires_at",
+        False,
+    ),
 ]
 
 V11_MIGRATION = """
@@ -202,6 +209,7 @@ SELECT setval('public.t_pending_transaction_pending_transaction_id_seq', COALESC
 SELECT setval('public.t_medical_provider_provider_id_seq',            COALESCE((SELECT MAX(provider_id)              FROM public.t_medical_provider), 1));
 SELECT setval('public.t_family_member_family_member_id_seq',          COALESCE((SELECT MAX(family_member_id)         FROM public.t_family_member), 1));
 SELECT setval('public.t_medical_expense_medical_expense_id_seq',      COALESCE((SELECT MAX(medical_expense_id)       FROM public.t_medical_expense), 1));
+SELECT setval('public.t_token_blacklist_token_blacklist_id_seq',      COALESCE((SELECT MAX(token_blacklist_id)       FROM public.t_token_blacklist), 1));
 commit;
 """.strip()
 

@@ -81,7 +81,7 @@ cleanup_on_failure() {
     fi
     # Clean up CSV files
     rm -f t_*.csv 2>/dev/null
-    log_msg "Cleanup completed (includes all CSV files: description, account, category, validation_amount, parameter, transaction, pending_transaction, transaction_categories, payment, transfer, receipt_image, medical_provider, family_member, medical_expense)"
+    log_msg "Cleanup completed (includes all CSV files: description, account, category, validation_amount, parameter, transaction, pending_transaction, transaction_categories, payment, transfer, receipt_image, medical_provider, family_member, medical_expense, token_blacklist)"
 }
 
 # Check if file exists and has content
@@ -565,6 +565,25 @@ else
     log_msg "Empty t_family_member.csv created (table will use default seed data from schema)"
 fi
 
+# Export and import token_blacklist table (V23 - JWT revocation)
+log_msg "Checking if t_token_blacklist table exists in source database..."
+if psql -h "${server}" -p "${port}" -U "${username}" finance_db -c "SELECT 1 FROM t_token_blacklist LIMIT 1;" >/dev/null 2>&1; then
+    log_msg "t_token_blacklist table found in source database, proceeding with export..."
+    if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT token_blacklist_id, token_hash, expires_at from t_token_blacklist ORDER BY token_blacklist_id) TO 't_token_blacklist.csv' CSV HEADER\"" "Export t_token_blacklist table"; then
+        cleanup_on_failure
+        exit 6
+    fi
+    if ! check_file "t_token_blacklist.csv"; then cleanup_on_failure; exit 6; fi
+    if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' finance_fresh_db -c \"\\copy t_token_blacklist FROM 't_token_blacklist.csv' CSV HEADER; commit\"" "Import t_token_blacklist table"; then
+        cleanup_on_failure
+        exit 6
+    fi
+else
+    log_msg "t_token_blacklist table not found in source database - creating empty CSV file..."
+    echo "token_blacklist_id,token_hash,expires_at" > t_token_blacklist.csv
+    log_msg "Empty t_token_blacklist.csv created"
+fi
+
 # Export and import medical_expense table (Phase 2 - Medical Expense Entity)
 # Check if source table exists before attempting export
 log_msg "Checking if t_medical_expense table exists in source database..."
@@ -607,6 +626,7 @@ SELECT setval('public.t_pending_transaction_pending_transaction_id_seq', COALESC
 SELECT setval('public.t_medical_provider_provider_id_seq', COALESCE((SELECT MAX(provider_id) FROM public.t_medical_provider), 1));
 SELECT setval('public.t_family_member_family_member_id_seq', COALESCE((SELECT MAX(family_member_id) FROM public.t_family_member), 1));
 SELECT setval('public.t_medical_expense_medical_expense_id_seq', COALESCE((SELECT MAX(medical_expense_id) FROM public.t_medical_expense), 1));
+SELECT setval('public.t_token_blacklist_token_blacklist_id_seq', COALESCE((SELECT MAX(token_blacklist_id) FROM public.t_token_blacklist), 1));
 commit;\"" "Reset all database sequences" "true"; then
     log_msg "Warning: Sequence reset completed with warnings (non-fatal)"
 else
