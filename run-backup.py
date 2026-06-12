@@ -65,11 +65,6 @@ STANDARD_TABLES: list[tuple[str, str, str]] = [
         "transaction_id",
     ),
     (
-        "t_pending_transaction",
-        "pending_transaction_id, account_name_owner, transaction_date, description, amount, review_status, owner, date_added",
-        "pending_transaction_id",
-    ),
-    (
         "t_transaction_categories",
         "category_id, transaction_id, owner, date_updated, date_added",
         "transaction_id",
@@ -81,7 +76,7 @@ STANDARD_TABLES: list[tuple[str, str, str]] = [
     ),
     (
         "t_transfer",
-        "transfer_id, source_account, destination_account, transaction_date, amount, guid_source, guid_destination, owner, active_status, date_updated, date_added",
+        "transfer_id, source_account, destination_account, transaction_date, amount, guid_source, guid_destination, owner, active_status, date_updated, date_added, version",
         "transfer_id",
     ),
     (
@@ -195,6 +190,41 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 COMMIT;
 """.strip()
 
+V22_MIGRATION = """
+ALTER TABLE t_user DROP CONSTRAINT IF EXISTS t_user_password_key;
+""".strip()
+
+V24_MIGRATION = """
+BEGIN;
+ALTER TABLE public.t_payment
+    DROP CONSTRAINT IF EXISTS unique_owner_payment;
+ALTER TABLE public.t_payment
+    ADD CONSTRAINT unique_owner_payment
+        UNIQUE (owner, source_account, destination_account, transaction_date, amount);
+COMMIT;
+""".strip()
+
+V25_MIGRATION = """
+BEGIN;
+ALTER TABLE public.t_account
+    ALTER COLUMN date_closed DROP NOT NULL,
+    ALTER COLUMN date_closed SET DEFAULT NULL;
+UPDATE public.t_account
+SET date_closed = NULL
+WHERE date_closed = TO_TIMESTAMP(0);
+COMMIT;
+""".strip()
+
+V26_MIGRATION = """
+ALTER TABLE t_transfer ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 0;
+""".strip()
+
+V27_MIGRATION = """
+BEGIN;
+DROP TABLE IF EXISTS public.t_pending_transaction;
+COMMIT;
+""".strip()
+
 RESET_SEQUENCES_SQL = """
 SELECT setval('public.t_receipt_image_receipt_image_id_seq',         COALESCE((SELECT MAX(receipt_image_id)         FROM public.t_receipt_image), 1));
 SELECT setval('public.t_transaction_transaction_id_seq',              COALESCE((SELECT MAX(transaction_id)           FROM public.t_transaction), 1));
@@ -205,7 +235,6 @@ SELECT setval('public.t_description_description_id_seq',              COALESCE((
 SELECT setval('public.t_parameter_parameter_id_seq',                  COALESCE((SELECT MAX(parameter_id)             FROM public.t_parameter), 1));
 SELECT setval('public.t_validation_amount_validation_id_seq',         COALESCE((SELECT MAX(validation_id)            FROM public.t_validation_amount), 1));
 SELECT setval('public.t_transfer_transfer_id_seq',                    COALESCE((SELECT MAX(transfer_id)              FROM public.t_transfer), 1));
-SELECT setval('public.t_pending_transaction_pending_transaction_id_seq', COALESCE((SELECT MAX(pending_transaction_id) FROM public.t_pending_transaction), 1));
 SELECT setval('public.t_medical_provider_provider_id_seq',            COALESCE((SELECT MAX(provider_id)              FROM public.t_medical_provider), 1));
 SELECT setval('public.t_family_member_family_member_id_seq',          COALESCE((SELECT MAX(family_member_id)         FROM public.t_family_member), 1));
 SELECT setval('public.t_medical_expense_medical_expense_id_seq',      COALESCE((SELECT MAX(medical_expense_id)       FROM public.t_medical_expense), 1));
@@ -593,6 +622,46 @@ def main() -> int:
     if not run_psql(
         "localhost", port, USERNAME, "finance_fresh_db",
         V21_MIGRATION, "Apply V21 migration", logger, allow_warnings=True,
+    ):
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        return 5
+
+    logger.info("Applying V22 migration...")
+    if not run_psql(
+        "localhost", port, USERNAME, "finance_fresh_db",
+        V22_MIGRATION, "Apply V22 migration", logger, allow_warnings=True,
+    ):
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        return 5
+
+    logger.info("Applying V24 migration...")
+    if not run_psql(
+        "localhost", port, USERNAME, "finance_fresh_db",
+        V24_MIGRATION, "Apply V24 migration", logger, allow_warnings=True,
+    ):
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        return 5
+
+    logger.info("Applying V25 migration...")
+    if not run_psql(
+        "localhost", port, USERNAME, "finance_fresh_db",
+        V25_MIGRATION, "Apply V25 migration", logger, allow_warnings=True,
+    ):
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        return 5
+
+    logger.info("Applying V26 migration...")
+    if not run_psql(
+        "localhost", port, USERNAME, "finance_fresh_db",
+        V26_MIGRATION, "Apply V26 migration", logger, allow_warnings=True,
+    ):
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        return 5
+
+    logger.info("Applying V27 migration...")
+    if not run_psql(
+        "localhost", port, USERNAME, "finance_fresh_db",
+        V27_MIGRATION, "Apply V27 migration", logger, allow_warnings=True,
     ):
         cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
         return 5
