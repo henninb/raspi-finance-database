@@ -47,10 +47,12 @@ CREATE TABLE IF NOT EXISTS public.t_account
     owner              TEXT                                  NULL,
     date_updated       TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
     date_added         TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    tax_bucket         TEXT                                  NULL,
     CONSTRAINT unique_account_name_owner_account_id UNIQUE (account_id, account_name_owner, account_type),
     CONSTRAINT unique_account_name_owner_account_type UNIQUE (account_name_owner, account_type),
     CONSTRAINT ck_account_type CHECK (account_type IN ('debit', 'credit', 'undefined')),
-    CONSTRAINT ck_account_type_lowercase CHECK (account_type = lower(account_type))
+    CONSTRAINT ck_account_type_lowercase CHECK (account_type = lower(account_type)),
+    CONSTRAINT ck_tax_bucket CHECK (tax_bucket IN ('pretax', 'taxable', 'roth'))
 );
 
 -- ALTER TABLE public.t_account ADD COLUMN payment_required   BOOLEAN     NULL     DEFAULT TRUE;

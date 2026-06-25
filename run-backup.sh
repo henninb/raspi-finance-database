@@ -406,7 +406,7 @@ if ! execute_cmd "psql -h localhost -p '${port}' -U '${username}' finance_fresh_
 fi
 
 # Export and import account table
-if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT account_id, account_name_owner, account_name, account_owner, account_type, active_status, payment_required, moniker, future, outstanding, cleared, date_closed, validation_date, owner, date_updated, date_added, billing_statement_close_day, billing_grace_period_days, billing_due_day_same_month, billing_due_day_next_month, billing_cycle_weekend_shift from t_account ORDER BY account_id) TO 't_account.csv' CSV HEADER\"" "Export t_account table"; then
+if ! execute_cmd "psql -h '${server}' -p '${port}' -U '${username}' finance_db -c \"\\copy (SELECT account_id, account_name_owner, account_name, account_owner, account_type, active_status, payment_required, moniker, future, outstanding, cleared, date_closed, validation_date, owner, date_updated, date_added, billing_statement_close_day, billing_grace_period_days, billing_due_day_same_month, billing_due_day_next_month, billing_cycle_weekend_shift, tax_bucket from t_account ORDER BY account_id) TO 't_account.csv' CSV HEADER\"" "Export t_account table"; then
     cleanup_on_failure
     exit 6
 fi

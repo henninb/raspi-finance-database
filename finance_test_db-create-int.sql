@@ -45,10 +45,12 @@ CREATE TABLE IF NOT EXISTS int.t_account
     validation_date    TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
     date_updated       TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
     date_added         TIMESTAMP     DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
+    tax_bucket         TEXT                                  NULL,
     CONSTRAINT unique_account_name_owner_account_id UNIQUE (account_id, account_name_owner, account_type),
     CONSTRAINT unique_account_name_owner_account_type UNIQUE (account_name_owner, account_type),
     CONSTRAINT ck_account_type CHECK (account_type IN ('debit', 'credit', 'undefined')),
-    CONSTRAINT ck_account_type_lowercase CHECK (account_type = lower(account_type))
+    CONSTRAINT ck_account_type_lowercase CHECK (account_type = lower(account_type)),
+    CONSTRAINT ck_tax_bucket CHECK (tax_bucket IN ('pretax', 'taxable', 'roth'))
 );
 
 ----------------------------
@@ -307,6 +309,24 @@ CREATE TABLE IF NOT EXISTS int.t_parameter
     active_status BOOLEAN   DEFAULT TRUE            NOT NULL,
     date_updated  TIMESTAMP DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S') NOT NULL,
     date_added    TIMESTAMP                         NOT NULL DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S')
+);
+
+-------------
+-- Reward  --
+-------------
+CREATE TABLE IF NOT EXISTS int.t_reward
+(
+    reward_id     BIGINT AUTO_INCREMENT PRIMARY KEY,
+    account_id    BIGINT        NOT NULL,
+    owner         TEXT          NOT NULL,
+    multiplier    NUMERIC(4, 1) NOT NULL,
+    category      TEXT          NOT NULL,
+    cpp           NUMERIC(6, 4) NOT NULL DEFAULT 0.01,
+    active_status BOOLEAN       NOT NULL DEFAULT TRUE,
+    date_added    TIMESTAMP     NOT NULL DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S'),
+    date_updated  TIMESTAMP     NOT NULL DEFAULT PARSEDATETIME('1970-01-01 00:00:00.0', 'yyyy-MM-dd HH:mm:ss.S'),
+    CONSTRAINT uk_reward_account_multiplier_category UNIQUE (account_id, multiplier, category),
+    CONSTRAINT fk_reward_account_id FOREIGN KEY (account_id) REFERENCES int.t_account (account_id) ON DELETE CASCADE
 );
 
 -----------------

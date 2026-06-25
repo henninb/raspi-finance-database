@@ -45,10 +45,12 @@ CREATE TABLE IF NOT EXISTS public.t_account
     owner              TEXT                                  NULL,
     date_updated       TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
     date_added         TIMESTAMP     DEFAULT TO_TIMESTAMP(0) NOT NULL,
+    tax_bucket         TEXT                                  NULL,
     CONSTRAINT unique_account_name_owner_account_id UNIQUE (account_id, account_name_owner, account_type),
     CONSTRAINT unique_account_name_owner_account_type UNIQUE (account_name_owner, account_type),
     CONSTRAINT ck_account_type CHECK (account_type IN ('debit', 'credit', 'undefined')),
-    CONSTRAINT ck_account_type_lowercase CHECK (account_type = lower(account_type))
+    CONSTRAINT ck_account_type_lowercase CHECK (account_type = lower(account_type)),
+    CONSTRAINT ck_tax_bucket CHECK (tax_bucket IN ('pretax', 'taxable', 'roth'))
 );
 
 -- ALTER TABLE public.t_account ADD COLUMN payment_required   BOOLEAN     NULL     DEFAULT TRUE;
@@ -311,6 +313,28 @@ SELECT setval('public.t_account_account_id_seq', (SELECT MAX(account_id) FROM pu
 SELECT setval('public.t_category_category_id_seq', (SELECT MAX(category_id) FROM public.t_category) + 1);
 SELECT setval('public.t_description_description_id_seq', (SELECT MAX(description_id) FROM public.t_description) + 1);
 SELECT setval('public.t_parameter_parameter_id_seq', (SELECT MAX(parameter_id) FROM public.t_parameter) + 1);
+
+-------------
+-- Reward  --
+-------------
+CREATE TABLE IF NOT EXISTS public.t_reward
+(
+    reward_id     BIGSERIAL PRIMARY KEY,
+    account_id    BIGINT        NOT NULL REFERENCES public.t_account (account_id),
+    owner         TEXT          NOT NULL,
+    multiplier    NUMERIC(4, 1) NOT NULL,
+    category      TEXT          NOT NULL,
+    cpp           NUMERIC(6, 4) NOT NULL DEFAULT 0.01,
+    active_status BOOLEAN       NOT NULL DEFAULT TRUE,
+    date_added    TIMESTAMP     NOT NULL DEFAULT now(),
+    date_updated  TIMESTAMP     NOT NULL DEFAULT now(),
+    CONSTRAINT uk_reward_account_multiplier_category UNIQUE (account_id, multiplier, category)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reward_owner_account ON public.t_reward (owner, account_id);
+
+SELECT setval('public.t_reward_reward_id_seq', COALESCE((SELECT MAX(reward_id) FROM public.t_reward), 1));
+
 SELECT setval('public.t_validation_amount_validation_id_seq',
               (SELECT MAX(validation_id) FROM public.t_validation_amount) + 1);
 

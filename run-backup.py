@@ -36,7 +36,7 @@ STANDARD_TABLES: list[tuple[str, str, str]] = [
             "account_id, account_name_owner, account_name, account_owner, account_type, active_status, "
             "payment_required, moniker, future, outstanding, cleared, date_closed, validation_date, owner, "
             "date_updated, date_added, billing_statement_close_day, billing_grace_period_days, "
-            "billing_due_day_same_month, billing_due_day_next_month, billing_cycle_weekend_shift"
+            "billing_due_day_same_month, billing_due_day_next_month, billing_cycle_weekend_shift, tax_bucket"
         ),
         "account_id",
     ),
@@ -54,6 +54,11 @@ STANDARD_TABLES: list[tuple[str, str, str]] = [
         "t_parameter",
         "parameter_id, parameter_name, parameter_value, owner, active_status, date_updated, date_added",
         "parameter_id",
+    ),
+    (
+        "t_reward",
+        "reward_id, account_id, owner, multiplier, category, cpp, active_status, date_updated, date_added",
+        "reward_id",
     ),
     (
         "t_transaction",
@@ -223,6 +228,17 @@ V27_MIGRATION = """
 BEGIN;
 DROP TABLE IF EXISTS public.t_pending_transaction;
 COMMIT;
+""".strip()
+
+V30_MIGRATION = """
+DO $$ BEGIN
+    ALTER TABLE public.t_account
+        ADD COLUMN IF NOT EXISTS tax_bucket TEXT NULL;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN
+    ALTER TABLE public.t_account
+        ADD CONSTRAINT ck_tax_bucket CHECK (tax_bucket IN ('pretax', 'taxable', 'roth'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 """.strip()
 
 RESET_SEQUENCES_SQL = """
@@ -662,6 +678,14 @@ def main() -> int:
     if not run_psql(
         "localhost", port, USERNAME, "finance_fresh_db",
         V27_MIGRATION, "Apply V27 migration", logger, allow_warnings=True,
+    ):
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        return 5
+
+    logger.info("Applying V30 migration...")
+    if not run_psql(
+        "localhost", port, USERNAME, "finance_fresh_db",
+        V30_MIGRATION, "Apply V30 migration", logger, allow_warnings=True,
     ):
         cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
         return 5

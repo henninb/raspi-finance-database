@@ -1187,3 +1187,9 @@ CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires_at
 COMMENT ON TABLE  public.t_token_blacklist              IS 'Revoked JWT tokens (SHA-256 hash); enables logout revocation across restarts';
 COMMENT ON COLUMN public.t_token_blacklist.token_hash   IS 'SHA-256 hex digest of the raw JWT — raw tokens are never stored';
 COMMENT ON COLUMN public.t_token_blacklist.expires_at   IS 'Original token expiry; rows past this time can be pruned';
+
+
+-- V30: Add tax_bucket column to t_account for financial planning categorization
+ALTER TABLE public.t_account
+    ADD COLUMN IF NOT EXISTS tax_bucket TEXT NULL
+    CONSTRAINT ck_tax_bucket CHECK (tax_bucket IN ('pretax', 'taxable', 'roth'));
