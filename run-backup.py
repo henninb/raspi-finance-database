@@ -6,6 +6,7 @@ from the canonical schema + exported CSV data, then copies the archive to raspi.
 """
 
 import argparse
+import csv
 import logging
 import os
 import platform
@@ -19,242 +20,60 @@ from pathlib import Path
 # Constants
 # ---------------------------------------------------------------------------
 DEFAULT_PORT = 5432
-DEFAULT_VERSION = "v17-1"
+DEFAULT_VERSION = "v18.4"
 USERNAME = "henninb"
 DATE = datetime.now().strftime("%Y-%m-%d")
 
-# (table_name, select_columns, order_by_column)
-STANDARD_TABLES: list[tuple[str, str, str]] = [
-    (
-        "t_description",
-        "description_id, description_name, owner, active_status, date_updated, date_added",
-        "description_id",
-    ),
-    (
-        "t_account",
-        (
-            "account_id, account_name_owner, account_name, account_owner, account_type, active_status, "
-            "payment_required, moniker, future, outstanding, cleared, date_closed, validation_date, owner, "
-            "date_updated, date_added, billing_statement_close_day, billing_grace_period_days, "
-            "billing_due_day_same_month, billing_due_day_next_month, billing_cycle_weekend_shift, tax_bucket"
-        ),
-        "account_id",
-    ),
-    (
-        "t_category",
-        "category_id, category_name, owner, active_status, date_updated, date_added",
-        "category_id",
-    ),
-    (
-        "t_validation_amount",
-        "validation_id, account_id, validation_date, transaction_state, amount, owner, active_status, date_updated, date_added",
-        "validation_id",
-    ),
-    (
-        "t_parameter",
-        "parameter_id, parameter_name, parameter_value, owner, active_status, date_updated, date_added",
-        "parameter_id",
-    ),
-    (
-        "t_reward",
-        "reward_id, account_id, owner, multiplier, category, cpp, active_status, date_updated, date_added",
-        "reward_id",
-    ),
-    (
-        "t_transaction",
-        (
-            "transaction_id, account_id, account_type, transaction_type, account_name_owner, guid, "
-            "transaction_date, due_date, description, category, amount, transaction_state, reoccurring_type, "
-            "active_status, notes, receipt_image_id, owner, date_updated, date_added"
-        ),
-        "transaction_id",
-    ),
-    (
-        "t_transaction_categories",
-        "category_id, transaction_id, owner, date_updated, date_added",
-        "transaction_id",
-    ),
-    (
-        "t_payment",
-        "payment_id, source_account, destination_account, transaction_date, amount, guid_source, guid_destination, owner, active_status, date_updated, date_added",
-        "payment_id",
-    ),
-    (
-        "t_transfer",
-        "transfer_id, source_account, destination_account, transaction_date, amount, guid_source, guid_destination, owner, active_status, date_updated, date_added, version",
-        "transfer_id",
-    ),
-    (
-        "t_receipt_image",
-        "receipt_image_id, transaction_id, image, thumbnail, image_format_type, owner, active_status, date_updated, date_added",
-        "receipt_image_id",
-    ),
+# (table_name, order_by_column), in foreign-key dependency order.
+# Columns are discovered from the database at run time, so they are not listed here.
+STANDARD_TABLES: list[tuple[str, str]] = [
+    ("t_role", "role_id"),
+    ("t_user", "user_id"),
+    ("t_description", "description_id"),
+    ("t_account", "account_id"),
+    ("t_category", "category_id"),
+    ("t_validation_amount", "validation_id"),
+    ("t_parameter", "parameter_id"),
+    ("t_reward", "reward_id"),
+    ("t_transaction", "transaction_id"),
+    ("t_transaction_categories", "transaction_id"),
+    ("t_payment", "payment_id"),
+    ("t_transfer", "transfer_id"),
+    ("t_receipt_image", "receipt_image_id"),
 ]
 
-# (table_name, select_columns, order_by_column, csv_header, truncate_before_import)
-OPTIONAL_TABLES: list[tuple[str, str, str, str, bool]] = [
-    (
-        "t_medical_provider",
-        (
-            "provider_id, provider_name, provider_type, specialty, npi, tax_id, address_line1, address_line2, "
-            "city, state, zip_code, country, phone, fax, email, website, network_status, billing_name, notes, "
-            "active_status, date_added, date_updated"
-        ),
-        "provider_id",
-        (
-            "provider_id,provider_name,provider_type,specialty,npi,tax_id,address_line1,address_line2,"
-            "city,state,zip_code,country,phone,fax,email,website,network_status,billing_name,notes,"
-            "active_status,date_added,date_updated"
-        ),
-        True,
-    ),
-    (
-        "t_family_member",
-        (
-            "family_member_id, owner, member_name, relationship, date_of_birth, insurance_member_id, "
-            "ssn_last_four, medical_record_number, active_status, date_added, date_updated"
-        ),
-        "family_member_id",
-        (
-            "family_member_id,owner,member_name,relationship,date_of_birth,insurance_member_id,"
-            "ssn_last_four,medical_record_number,active_status,date_added,date_updated"
-        ),
-        True,
-    ),
-    (
-        "t_medical_expense",
-        (
-            "medical_expense_id, transaction_id, provider_id, family_member_id, service_date, service_description, "
-            "procedure_code, diagnosis_code, billed_amount, insurance_discount, insurance_paid, patient_responsibility, "
-            "paid_date, is_out_of_network, claim_number, claim_status, active_status, date_added, date_updated, paid_amount, owner"
-        ),
-        "medical_expense_id",
-        (
-            "medical_expense_id,transaction_id,provider_id,family_member_id,service_date,service_description,"
-            "procedure_code,diagnosis_code,billed_amount,insurance_discount,insurance_paid,patient_responsibility,"
-            "paid_date,is_out_of_network,claim_number,claim_status,active_status,date_added,date_updated,paid_amount,owner"
-        ),
-        False,
-    ),
-    (
-        "t_token_blacklist",
-        "token_blacklist_id, token_hash, expires_at",
-        "token_blacklist_id",
-        "token_blacklist_id,token_hash,expires_at",
-        False,
-    ),
+# (table_name, order_by_column, truncate_before_import)
+# Exported only if the table exists in the source; truncate clears schema seed rows.
+OPTIONAL_TABLES: list[tuple[str, str, bool]] = [
+    ("t_medical_provider", "provider_id", True),
+    ("t_family_member", "family_member_id", True),
+    ("t_medical_expense", "medical_expense_id", False),
+    ("t_token_blacklist", "token_blacklist_id", False),
 ]
 
-V11_MIGRATION = """
-BEGIN;
-ALTER TABLE public.t_medical_expense ALTER COLUMN transaction_id DROP NOT NULL;
-ALTER TABLE public.t_medical_expense ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(12,2) DEFAULT 0.00 NOT NULL;
-DO $$ BEGIN
-    ALTER TABLE public.t_medical_expense ADD CONSTRAINT ck_paid_amount_non_negative CHECK (paid_amount >= 0);
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-UPDATE public.t_medical_expense SET paid_amount = patient_responsibility WHERE transaction_id IS NOT NULL;
-COMMIT;
-""".strip()
+# Source tables deliberately not copied into finance_fresh_db (Flyway bookkeeping).
+# Any other source table missing from the lists above is reported.
+EXCLUDED_TABLES = {"flyway_schema_history"}
 
-V21_MIGRATION = """
-BEGIN;
-ALTER TABLE public.t_account
-    ADD COLUMN IF NOT EXISTS billing_statement_close_day SMALLINT NULL,
-    ADD COLUMN IF NOT EXISTS billing_grace_period_days   SMALLINT NULL,
-    ADD COLUMN IF NOT EXISTS billing_due_day_same_month  SMALLINT NULL,
-    ADD COLUMN IF NOT EXISTS billing_due_day_next_month  SMALLINT NULL,
-    ADD COLUMN IF NOT EXISTS billing_cycle_weekend_shift TEXT     NULL;
-DO $$ BEGIN
-    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_statement_close_day
-        CHECK (billing_statement_close_day BETWEEN 1 AND 31);
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_grace_period_days
-        CHECK (billing_grace_period_days BETWEEN 1 AND 60);
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_due_day_same_month
-        CHECK (billing_due_day_same_month BETWEEN 1 AND 31);
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_due_day_next_month
-        CHECK (billing_due_day_next_month BETWEEN 1 AND 31);
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_cycle_weekend_shift
-        CHECK (billing_cycle_weekend_shift IN ('back', 'forward', 'back_sat_only'));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE public.t_account ADD CONSTRAINT ck_billing_due_method_exclusive CHECK (
-        (CASE WHEN billing_grace_period_days IS NOT NULL THEN 1 ELSE 0 END +
-         CASE WHEN billing_due_day_same_month IS NOT NULL THEN 1 ELSE 0 END +
-         CASE WHEN billing_due_day_next_month IS NOT NULL THEN 1 ELSE 0 END) <= 1
-    );
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-COMMIT;
-""".strip()
-
-V22_MIGRATION = """
-ALTER TABLE t_user DROP CONSTRAINT IF EXISTS t_user_password_key;
-""".strip()
-
-V24_MIGRATION = """
-BEGIN;
-ALTER TABLE public.t_payment
-    DROP CONSTRAINT IF EXISTS unique_owner_payment;
-ALTER TABLE public.t_payment
-    ADD CONSTRAINT unique_owner_payment
-        UNIQUE (owner, source_account, destination_account, transaction_date, amount);
-COMMIT;
-""".strip()
-
-V25_MIGRATION = """
-BEGIN;
-ALTER TABLE public.t_account
-    ALTER COLUMN date_closed DROP NOT NULL,
-    ALTER COLUMN date_closed SET DEFAULT NULL;
-UPDATE public.t_account
-SET date_closed = NULL
-WHERE date_closed = TO_TIMESTAMP(0);
-COMMIT;
-""".strip()
-
-V26_MIGRATION = """
-ALTER TABLE t_transfer ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 0;
-""".strip()
-
-V27_MIGRATION = """
-BEGIN;
-DROP TABLE IF EXISTS public.t_pending_transaction;
-COMMIT;
-""".strip()
-
-V30_MIGRATION = """
-DO $$ BEGIN
-    ALTER TABLE public.t_account
-        ADD COLUMN IF NOT EXISTS tax_bucket TEXT NULL;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE public.t_account
-        ADD CONSTRAINT ck_tax_bucket CHECK (tax_bucket IN ('pretax', 'taxable', 'roth'));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-""".strip()
-
+# Sets every serial/identity sequence in public to MAX(column) of its owning table.
 RESET_SEQUENCES_SQL = """
-SELECT setval('public.t_receipt_image_receipt_image_id_seq',         COALESCE((SELECT MAX(receipt_image_id)         FROM public.t_receipt_image), 1));
-SELECT setval('public.t_transaction_transaction_id_seq',              COALESCE((SELECT MAX(transaction_id)           FROM public.t_transaction), 1));
-SELECT setval('public.t_payment_payment_id_seq',                      COALESCE((SELECT MAX(payment_id)               FROM public.t_payment), 1));
-SELECT setval('public.t_account_account_id_seq',                      COALESCE((SELECT MAX(account_id)               FROM public.t_account), 1));
-SELECT setval('public.t_category_category_id_seq',                    COALESCE((SELECT MAX(category_id)              FROM public.t_category), 1));
-SELECT setval('public.t_description_description_id_seq',              COALESCE((SELECT MAX(description_id)           FROM public.t_description), 1));
-SELECT setval('public.t_parameter_parameter_id_seq',                  COALESCE((SELECT MAX(parameter_id)             FROM public.t_parameter), 1));
-SELECT setval('public.t_validation_amount_validation_id_seq',         COALESCE((SELECT MAX(validation_id)            FROM public.t_validation_amount), 1));
-SELECT setval('public.t_transfer_transfer_id_seq',                    COALESCE((SELECT MAX(transfer_id)              FROM public.t_transfer), 1));
-SELECT setval('public.t_medical_provider_provider_id_seq',            COALESCE((SELECT MAX(provider_id)              FROM public.t_medical_provider), 1));
-SELECT setval('public.t_family_member_family_member_id_seq',          COALESCE((SELECT MAX(family_member_id)         FROM public.t_family_member), 1));
-SELECT setval('public.t_medical_expense_medical_expense_id_seq',      COALESCE((SELECT MAX(medical_expense_id)       FROM public.t_medical_expense), 1));
-SELECT setval('public.t_token_blacklist_token_blacklist_id_seq',      COALESCE((SELECT MAX(token_blacklist_id)       FROM public.t_token_blacklist), 1));
+DO $$
+DECLARE r record;
+BEGIN
+    FOR r IN
+        SELECT format('%I.%I', n.nspname, s.relname) AS seq,
+               format('%I.%I', n.nspname, t.relname) AS tbl,
+               a.attname AS col
+        FROM pg_class s
+        JOIN pg_namespace n ON n.oid = s.relnamespace
+        JOIN pg_depend d ON d.objid = s.oid AND d.deptype IN ('a', 'i')
+        JOIN pg_class t ON t.oid = d.refobjid
+        JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
+        WHERE s.relkind = 'S' AND n.nspname = 'public'
+    LOOP
+        EXECUTE format('SELECT setval(%L, COALESCE((SELECT MAX(%I) FROM %s), 1))', r.seq, r.col, r.tbl);
+    END LOOP;
+END $$;
 commit;
 """.strip()
 
@@ -310,7 +129,7 @@ def run_psql(
     allow_warnings: bool = False,
 ) -> bool:
     """Execute SQL via psql stdin — avoids all shell quoting complexity."""
-    cmd = ["psql", "-h", host, "-p", str(port), "-U", user, db]
+    cmd = ["psql", "-v", "ON_ERROR_STOP=1", "-h", host, "-p", str(port), "-U", user, db]
     logger.info(f"Starting: {description}")
     logger.info(f"Command: {' '.join(cmd)}")
     result = subprocess.run(cmd, input=sql, capture_output=True, text=True)
@@ -327,7 +146,7 @@ def run_psql_file(
     logger: logging.Logger,
     allow_warnings: bool = False,
 ) -> bool:
-    cmd = ["psql", "-h", host, "-p", str(port), "-U", user, db]
+    cmd = ["psql", "-v", "ON_ERROR_STOP=1", "-h", host, "-p", str(port), "-U", user, db]
     logger.info(f"Starting: {description}")
     logger.info(f"Command: {' '.join(cmd)} < {sql_file}")
     with sql_file.open() as fh:
@@ -422,6 +241,36 @@ def table_exists(host: str, port: int, user: str, db: str, table: str) -> bool:
     return result.returncode == 0
 
 
+def psql_query(host: str, port: int, user: str, db: str, sql: str) -> list[str]:
+    """Run a read-only query and return its rows, raising on any failure."""
+    result = subprocess.run(
+        ["psql", "-X", "-v", "ON_ERROR_STOP=1", "-h", host, "-p", str(port), "-U", user, "-d", db, "-tA", "-c", sql],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"query on {db}@{host} failed: {result.stderr.strip()}")
+    return [line for line in result.stdout.splitlines() if line]
+
+
+def table_columns(host: str, port: int, user: str, db: str, table: str) -> list[str]:
+    return psql_query(
+        host, port, user, db,
+        "SELECT attname FROM pg_attribute "
+        f"WHERE attrelid = 'public.{table}'::regclass AND attnum > 0 AND NOT attisdropped ORDER BY attnum",
+    )
+
+
+def count_rows(host: str, port: int, user: str, db: str, table: str) -> int:
+    return int(psql_query(host, port, user, db, f"SELECT count(*) FROM public.{table}")[0])
+
+
+def csv_data_rows(path: str) -> int:
+    csv.field_size_limit(sys.maxsize)
+    with open(path, newline="", encoding="utf-8", errors="replace") as fh:
+        return sum(1 for _ in csv.reader(fh)) - 1
+
+
 # ---------------------------------------------------------------------------
 # File helpers
 # ---------------------------------------------------------------------------
@@ -456,8 +305,12 @@ def cleanup_on_failure(
     finance_db_file: str | None,
     finance_fresh_db_file: str | None,
     logger: logging.Logger,
+    keep_source: bool = False,
 ) -> None:
     logger.info("Cleaning up partial backup files due to failure...")
+    if keep_source and finance_db_file:
+        logger.warning(f"Keeping verified source dump {finance_db_file}; it was NOT copied to raspi")
+        finance_db_file = None
     for f in filter(None, [finance_db_file, finance_fresh_db_file]):
         p = Path(f)
         if p.exists():
@@ -491,7 +344,6 @@ def export_import_table(
     server: str,
     port: int,
     table: str,
-    columns: str,
     order_by: str,
     csv_file: str,
     logger: logging.Logger,
@@ -499,14 +351,32 @@ def export_import_table(
     finance_fresh_db_file: str | None,
     truncate_first: bool = False,
 ) -> bool:
-    export_sql = rf"\copy (SELECT {columns} FROM {table} ORDER BY {order_by}) TO '{csv_file}' CSV HEADER"
-    if not run_psql(server, port, USERNAME, "finance_db", export_sql, f"Export {table}", logger):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+    def fail() -> bool:
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger, keep_source=True)
         return False
 
+    try:
+        src_cols = table_columns(server, port, USERNAME, "finance_db", table)
+        fresh_cols = table_columns("localhost", port, USERNAME, "finance_fresh_db", table)
+    except RuntimeError as exc:
+        logger.error(f"Cannot read columns of {table}: {exc}")
+        return fail()
+
+    if set(src_cols) != set(fresh_cols):
+        logger.error(
+            f"SCHEMA DRIFT in {table}: only in source {sorted(set(src_cols) - set(fresh_cols))}, "
+            f"only in finance_fresh_db {sorted(set(fresh_cols) - set(src_cols))} — "
+            "regenerate finance_fresh_db-create.sql from the live schema"
+        )
+        return fail()
+
+    cols = ", ".join('"' + c.replace('"', '""') + '"' for c in src_cols)
+    export_sql = rf"\copy (SELECT {cols} FROM {table} ORDER BY {order_by}) TO '{csv_file}' CSV HEADER"
+    if not run_psql(server, port, USERNAME, "finance_db", export_sql, f"Export {table}", logger):
+        return fail()
+
     if not check_file(csv_file, logger):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
-        return False
+        return fail()
 
     if truncate_first:
         if not run_psql(
@@ -515,17 +385,32 @@ def export_import_table(
             f"Truncate {table}",
             logger,
         ):
-            cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
-            return False
+            return fail()
 
-    import_sql = rf"\copy {table} FROM '{csv_file}' CSV HEADER; commit"
+    # User triggers (e.g. on t_transaction_categories) rewrite owner and timestamps on
+    # insert; disable them so the rows are restored exactly as exported.
+    import_sql = (
+        f"ALTER TABLE {table} DISABLE TRIGGER USER;\n"
+        rf"\copy {table} ({cols}) FROM '{csv_file}' CSV HEADER" "\n"
+        f"ALTER TABLE {table} ENABLE TRIGGER USER;\n"
+        "commit"
+    )
     if not run_psql(
         "localhost", port, USERNAME, "finance_fresh_db",
         import_sql, f"Import {table}", logger
     ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
-        return False
+        return fail()
 
+    expected = csv_data_rows(csv_file)
+    try:
+        actual = count_rows("localhost", port, USERNAME, "finance_fresh_db", table)
+    except RuntimeError as exc:
+        logger.error(f"Cannot count rows of {table} in finance_fresh_db: {exc}")
+        return fail()
+    if actual != expected:
+        logger.error(f"ROW COUNT MISMATCH in {table}: exported {expected}, finance_fresh_db has {actual}")
+        return fail()
+    logger.info(f"Verified {table}: {actual} rows")
     return True
 
 
@@ -535,7 +420,7 @@ def export_import_table(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Finance database backup script",
-        epilog="Example: %(prog)s 192.168.10.25 5432 v18-1",
+        epilog="Example: %(prog)s 192.168.10.25 5432 v18.4",
     )
     parser.add_argument("server", nargs="?", help="Source database server (default: auto-detect)")
     parser.add_argument("port", nargs="?", type=int, default=DEFAULT_PORT, help=f"Port (default: {DEFAULT_PORT})")
@@ -602,7 +487,7 @@ def main() -> int:
         "Drop existing finance_fresh_db",
         logger, allow_warnings=True,
     ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger, keep_source=True)
         return 5
 
     schema_file = Path("finance_fresh_db-create.sql")
@@ -612,7 +497,7 @@ def main() -> int:
         "Create finance_fresh_db from schema",
         logger, allow_warnings=True,
     ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger, keep_source=True)
         return 5
 
     if not run_psql(
@@ -622,72 +507,7 @@ def main() -> int:
         logger, allow_warnings=True,
     ):
         logger.error("finance_fresh_db was not created successfully")
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
-        return 5
-
-    # --- Apply migrations ---
-    logger.info("Applying V11 migration...")
-    if not run_psql(
-        "localhost", port, USERNAME, "finance_fresh_db",
-        V11_MIGRATION, "Apply V11 migration", logger, allow_warnings=True,
-    ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
-        return 5
-
-    logger.info("Applying V21 migration...")
-    if not run_psql(
-        "localhost", port, USERNAME, "finance_fresh_db",
-        V21_MIGRATION, "Apply V21 migration", logger, allow_warnings=True,
-    ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
-        return 5
-
-    logger.info("Applying V22 migration...")
-    if not run_psql(
-        "localhost", port, USERNAME, "finance_fresh_db",
-        V22_MIGRATION, "Apply V22 migration", logger, allow_warnings=True,
-    ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
-        return 5
-
-    logger.info("Applying V24 migration...")
-    if not run_psql(
-        "localhost", port, USERNAME, "finance_fresh_db",
-        V24_MIGRATION, "Apply V24 migration", logger, allow_warnings=True,
-    ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
-        return 5
-
-    logger.info("Applying V25 migration...")
-    if not run_psql(
-        "localhost", port, USERNAME, "finance_fresh_db",
-        V25_MIGRATION, "Apply V25 migration", logger, allow_warnings=True,
-    ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
-        return 5
-
-    logger.info("Applying V26 migration...")
-    if not run_psql(
-        "localhost", port, USERNAME, "finance_fresh_db",
-        V26_MIGRATION, "Apply V26 migration", logger, allow_warnings=True,
-    ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
-        return 5
-
-    logger.info("Applying V27 migration...")
-    if not run_psql(
-        "localhost", port, USERNAME, "finance_fresh_db",
-        V27_MIGRATION, "Apply V27 migration", logger, allow_warnings=True,
-    ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
-        return 5
-
-    logger.info("Applying V30 migration...")
-    if not run_psql(
-        "localhost", port, USERNAME, "finance_fresh_db",
-        V30_MIGRATION, "Apply V30 migration", logger, allow_warnings=True,
-    ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger, keep_source=True)
         return 5
 
     # --- Verify medical tables (informational, non-fatal) ---
@@ -707,48 +527,77 @@ def main() -> int:
     # --- Export/import data ---
     logger.info("Starting table data export and import process")
 
+    # Restore the constraint exactly as the schema file defined it, not from a copy in this script.
+    try:
+        fk_rows = psql_query(
+            "localhost", port, USERNAME, "finance_fresh_db",
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conname = 'fk_receipt_image' AND conrelid = 'public.t_transaction'::regclass",
+        )
+    except RuntimeError as exc:
+        logger.error(f"Cannot read fk_receipt_image definition: {exc}")
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger, keep_source=True)
+        return 6
+    if len(fk_rows) != 1:
+        logger.error("fk_receipt_image not found in finance_fresh_db — schema file is out of date")
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger, keep_source=True)
+        return 6
+    fk_definition = fk_rows[0]
+
     if not run_psql(
         "localhost", port, USERNAME, "finance_fresh_db",
         "ALTER TABLE t_transaction DROP CONSTRAINT IF EXISTS fk_receipt_image; commit",
         "Drop fk_receipt_image constraint",
         logger,
     ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger, keep_source=True)
         return 6
 
-    for table, columns, order_by in STANDARD_TABLES:
+    try:
+        source_tables = set(psql_query(
+            server, port, USERNAME, "finance_db",
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
+        ))
+    except RuntimeError as exc:
+        logger.error(f"Cannot list source tables: {exc}")
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger, keep_source=True)
+        return 6
+    handled = {t for t, _ in STANDARD_TABLES} | {t for t, _, _ in OPTIONAL_TABLES} | EXCLUDED_TABLES
+    unhandled = sorted(source_tables - handled)
+    if unhandled:
+        logger.warning(f"Source tables neither exported nor excluded (add to run-backup.py): {', '.join(unhandled)}")
+
+    for table, order_by in STANDARD_TABLES:
         if not export_import_table(
-            server, port, table, columns, order_by,
+            server, port, table, order_by,
             f"{table}.csv", logger, finance_db_file, finance_fresh_db_file,
         ):
             return 6
 
-    for table, columns, order_by, csv_header, truncate_first in OPTIONAL_TABLES:
+    for table, order_by, truncate_first in OPTIONAL_TABLES:
         logger.info(f"Checking if {table} exists in source database...")
         if table_exists(server, port, USERNAME, "finance_db", table):
             logger.info(f"{table} found — exporting...")
             if not export_import_table(
-                server, port, table, columns, order_by,
+                server, port, table, order_by,
                 f"{table}.csv", logger, finance_db_file, finance_fresh_db_file,
                 truncate_first=truncate_first,
             ):
                 return 6
         else:
-            logger.info(f"{table} not found — writing empty CSV placeholder")
-            Path(f"{table}.csv").write_text(csv_header + "\n")
+            logger.info(f"{table} not found in source — writing empty CSV placeholder")
+            Path(f"{table}.csv").write_text(
+                ",".join(table_columns("localhost", port, USERNAME, "finance_fresh_db", table)) + "\n"
+            )
 
     # --- Restore FK constraint ---
     if not run_psql(
         "localhost", port, USERNAME, "finance_fresh_db",
-        (
-            "ALTER TABLE t_transaction ADD CONSTRAINT fk_receipt_image "
-            "FOREIGN KEY (receipt_image_id) REFERENCES t_receipt_image (receipt_image_id) "
-            "ON DELETE CASCADE; commit"
-        ),
+        f"ALTER TABLE t_transaction ADD CONSTRAINT fk_receipt_image {fk_definition}; commit",
         "Restore fk_receipt_image constraint",
         logger,
     ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger, keep_source=True)
         return 6
 
     # --- Reset sequences ---
@@ -766,11 +615,11 @@ def main() -> int:
         "localhost", port, USERNAME, "finance_fresh_db",
         Path(finance_fresh_db_file), "Create finance_fresh_db dump", logger,
     ):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger, keep_source=True)
         return 7
 
     if not check_file(finance_fresh_db_file, logger):
-        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger)
+        cleanup_on_failure(finance_db_file, finance_fresh_db_file, logger, keep_source=True)
         return 7
 
     # --- Copy to remote ---

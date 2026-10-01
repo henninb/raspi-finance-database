@@ -28,3 +28,20 @@ ALTER TABLE t_transaction ADD CONSTRAINT t_transaction_category_lowercase_ck CHE
 ALTER TABLE t_transaction ADD CONSTRAINT t_transaction_notes_lowercase_ck CHECK (notes = lower(notes));
 ALTER TABLE t_account ADD CONSTRAINT t_account_account_name_owner_lowercase_ck CHECK (account_name_owner = lower(account_name_owner));
 ALTER TABLE t_account ADD CONSTRAINT t_account_account_type_lowercase_ck CHECK (account_type = lower(account_type));
+
+## Validating a backup
+
+```bash
+./validate-backup.py finance_db-v18.4-2026-09-21.tar             # newest older backup alongside is the comparison
+./validate-backup.py finance_db-v18.4-2026-09-21.tar --live <server>   # also compare row counts with the running database
+```
+
+It reads the archive with `pg_restore` only (no database, password or temp database needed) and checks:
+
+- the tar is complete and `pg_restore` can read every section (a truncated backup fails fast)
+- the schema inside the backup matches `finance_fresh_db-create.sql`
+- every table has a data section, and no table has gone empty or shrunk more than `--max-drop` (default 10%, tables under `--min-rows` = 100 are only checked for emptying) compared with the previous backup
+- with `--live`, row counts against the running database (small differences are warnings, since data changes after a backup)
+
+Exit status is 0 on pass (warnings allowed), 1 on failure, 2 on a usage or environment problem.
+Validation failing on schema means `finance_fresh_db-create.sql` or the backup is out of date; regenerate the schema file (the instructions are in its header comment).
