@@ -231,8 +231,10 @@ CREATE TABLE public.t_account (
     billing_due_day_next_month smallint,
     billing_cycle_weekend_shift text,
     tax_bucket text,
+    billing_statement_close_business_day smallint,
     CONSTRAINT ck_account_type CHECK ((account_type = ANY (ARRAY['credit'::text, 'debit'::text, 'undefined'::text, 'checking'::text, 'savings'::text, 'credit_card'::text, 'certificate'::text, 'money_market'::text, 'brokerage'::text, 'retirement_401k'::text, 'retirement_ira'::text, 'retirement_roth'::text, 'pension'::text, 'hsa'::text, 'fsa'::text, 'medical_savings'::text, 'mortgage'::text, 'auto_loan'::text, 'student_loan'::text, 'personal_loan'::text, 'line_of_credit'::text, 'utility'::text, 'prepaid'::text, 'gift_card'::text, 'business_checking'::text, 'business_savings'::text, 'business_credit'::text, 'cash'::text, 'escrow'::text, 'trust'::text]))),
     CONSTRAINT ck_account_type_lowercase CHECK ((account_type = lower(account_type))),
+    CONSTRAINT ck_billing_close_method_exclusive CHECK (((billing_statement_close_day IS NULL) OR (billing_statement_close_business_day IS NULL))),
     CONSTRAINT ck_billing_cycle_weekend_shift CHECK ((billing_cycle_weekend_shift = ANY (ARRAY['back'::text, 'forward'::text, 'back_sat_only'::text]))),
     CONSTRAINT ck_billing_due_day_next_month CHECK (((billing_due_day_next_month >= 1) AND (billing_due_day_next_month <= 31))),
     CONSTRAINT ck_billing_due_day_same_month CHECK (((billing_due_day_same_month >= 1) AND (billing_due_day_same_month <= 31))),
@@ -250,6 +252,7 @@ CASE
     ELSE 0
 END) <= 1)),
     CONSTRAINT ck_billing_grace_period_days CHECK (((billing_grace_period_days >= 1) AND (billing_grace_period_days <= 60))),
+    CONSTRAINT ck_billing_statement_close_business_day CHECK (((billing_statement_close_business_day >= 1) AND (billing_statement_close_business_day <= 23))),
     CONSTRAINT ck_billing_statement_close_day CHECK (((billing_statement_close_day >= 1) AND (billing_statement_close_day <= 31))),
     CONSTRAINT ck_tax_bucket CHECK ((tax_bucket = ANY (ARRAY['pretax'::text, 'taxable'::text, 'roth'::text])))
 );
